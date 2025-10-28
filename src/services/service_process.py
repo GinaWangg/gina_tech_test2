@@ -49,7 +49,8 @@ class ServiceProcess:
                 if i == 0 and kb == top1_hint_search_result["faq"]:
                     key = str(top1_hint_search_result["hints_id"]) + "_" + site
                     index_suffix = (
-                        "2" if self.container.rag_hint_id_index_mapping.get(key)["index"] == 1 else "1"
+                        "2" # "gina"
+                        # "2" if self.container.rag_hint_id_index_mapping.get(key)["index"] == 1 else "1"
                     )
                 else:
                     index_suffix = "1"

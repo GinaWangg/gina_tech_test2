@@ -1,18 +1,119 @@
-from azure.cosmos import CosmosClient 
-from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
+# from azure.cosmos import CosmosClient 
+# from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
 from typing import Optional
 import pandas as pd
 from datetime import datetime
 import uuid
+import json
+
+class MockCosmosClient:
+    """模擬 CosmosClient 的行為"""
+    def __init__(self, url, credential, consistency_level=None):
+        print(f"初始化模擬 CosmosClient: {url}")
+        self.url = url
+        
+    def get_database_client(self, database_name):
+        print(f"取得資料庫客戶端: {database_name}")
+        return MockDatabaseClient(database_name)
+
+class MockDatabaseClient:
+    """模擬 Database 客戶端的行為"""
+    def __init__(self, database_name):
+        self.database_name = database_name
+        
+    def get_container_client(self, container_name):
+        print(f"取得容器客戶端: {container_name}")
+        return MockContainerClient(self.database_name, container_name)
+
+class MockAsyncIterator:
+    """模擬異步迭代器"""
+    def __init__(self, items):
+        self.items = items
+        self.index = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self.index >= len(self.items):
+            raise StopAsyncIteration
+        item = self.items[self.index]
+        self.index += 1
+        return item
+
+class MockContainerClient:
+    """模擬 Container 客戶端的行為"""
+    def __init__(self, database_name, container_name):
+        self.database_name = database_name
+        self.container_name = container_name
+    
+    def query_items(self, query, enable_cross_partition_query=True):
+        """模擬同步查詢操作"""
+        print(f"執行同步查詢: {query}")
+        return [{
+            "id": "mock_1",
+            "type": "mock_data",
+            "content": "這是模擬資料",
+            "createDate": "2025-10-28T08:00:00Z",
+            "user_info": {"mock_user": "data"},
+            "process_info": {
+                "bot_scope": "technical-support",
+                "merge_user_input": "mock_input"
+            },
+            "extract": {
+                "output": "mock_output"
+            }
+        }]
+
+    def query_items(self, query, enable_cross_partition_query=True):
+        """模擬異步查詢操作，返回異步迭代器"""
+        print(f"執行異步查詢: {query}")
+        if "ApChatbotKnowledge" in query or "ai-agent-backend" in query:
+            mock_data = {
+                "faq": ["AAPF-1234", "AAPF-5678", "AAPF-9012"],
+                "cosineSimilarity": [0.85, 0.75, 0.65],
+                "productLine": ["notebook", "desktop", "accessories"]
+            }
+            return MockAsyncIterator([mock_data])
+        else:
+            mock_data = [{
+                "id": "mock_1",
+                "type": "mock_data",
+                "user_input": "mock_input",
+                "content": "這是模擬資料",
+                "createDate": "2025-10-28T08:00:00Z",
+                "user_info": {"mock_user": "data"},
+                "process_info": {
+                    "bot_scope": "technical-support",
+                    "merge_user_input": "mock_input"
+                },
+                "extract": {
+                    "output": {
+                        "answer": "這是模擬的回答內容",
+                        "intent": "Technical Support",
+                        "kb_no": 12345
+                    },
+                    "policy_violation": False
+                }
+            }]
+            return MockAsyncIterator(mock_data)
+    
+    async def upsert_item(self, data):
+        """模擬寫入操作"""
+        print(f"模擬寫入到 {self.container_name}:")
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return data
 
 class CosmosConfig:
     def __init__(self, config):
-
-        self.url = config.get("TECH_COSMOS_URL")
-        self.key = config.get("TECH_COSMOS_KEY")
-        self.client = CosmosClient(
-            self.url, credential=self.key, consistency_level="Session"
-        )
+        print("初始化模擬 CosmosConfig")
+        
+        # 儲存設定但不真正使用
+        self.url = config.get("TECH_COSMOS_URL", "mock_url")
+        self.key = config.get("TECH_COSMOS_KEY", "mock_key")
+        
+        # 使用模擬的客戶端
+        self.client = MockCosmosClient(self.url, self.key, consistency_level="Session")
 
         self.database_name = config.get("TECH_COSMOS_DB")
         self.lookup_db_name = config.get("TECH_COSMOS_LOOKUP_DB")
@@ -39,9 +140,8 @@ class CosmosConfig:
         )
         
         ###
-        self.async_client = AsyncCosmosClient(
-            self.url, credential=self.key, consistency_level="Session"
-        )
+        # 使用相同的模擬客戶端
+        self.async_client = self.client
 
         # Create the database if it doesn't exist
         self.async_database = self.async_client.get_database_client(self.database_name)
@@ -173,7 +273,7 @@ class CosmosConfig:
             # last_product_name = user_info.get("product_name")
             last_merge_user_input = results[-1].get("process_info").get("merge_user_input")
             # last_ask_flag = results[-1].get("extract").get("ask_flag")
-            last_extract_output = results[-1].get("extract").get("output")
+            last_extract_output = results[-1].get("extract", {}).get("output", {})
 
             for item in results:
                 messages.append(item.get("user_input"))
@@ -416,24 +516,51 @@ class CosmosConfig:
 
 
     def get_language_by_websitecode(self, websitecode: str) -> Optional[str]:
-        query = f"SELECT c.lang FROM c WHERE c.websitecode = '{websitecode}'"
-        df = self.query_cosmos("FAQ_LanguageMapping_ForOpenAI", query)
-        return df.iloc[0]["lang"] if not df.empty else None
+        # query = f"SELECT c.lang FROM c WHERE c.websitecode = '{websitecode}'"
+        # df = self.query_cosmos("FAQ_LanguageMapping_ForOpenAI", query)
+        # return df.iloc[0]["lang"] if not df.empty else None
+        return "es-es"
 
     def get_kb_article(self,lang: str, kb_no: int) -> Optional[dict]:
-        query = f"SELECT * FROM c WHERE c.lang = '{lang}' AND c.kb_no = {kb_no}"
-        df = self.query_cosmos("ApChatbotKnowledge", query)
-        return df.iloc[0].to_dict() if not df.empty else None
+        # query = f"SELECT * FROM c WHERE c.lang = '{lang}' AND c.kb_no = {kb_no}"
+        # df = self.query_cosmos("ApChatbotKnowledge", query)
+        return {
+            "id": "1050571_es-es",
+            "kb_no": 1050571,
+            "lang": "es-es",
+            "title": "[Router inalámbrico] Cómo cargar su propio certificado (HTTPS/SSL) en el router ASUS",
+            "summary": "ASUS routers may display a warning message when connecting via HTTPS due to the routers self-signed certificate not being trusted by the browsers default SSL security specification. Users can make their connection secure by adjusting router settings or importing their own certificate via the routers DDNS function. The FAQ provides step-by-step instructions on how to import a certificate and troubleshoot any issues that may arise.",
+            "content": "Cuando intenta conectarse a un router ASUS a través de HTTPS en su navegador, puede aparecer un mensaje de advertencia \"Su conexión no es privada\", lo que indica que el certificado de seguridad de la URL no es confiable. Esto se debe a que el certificado predeterminado del router está auto firmado, lo que no cumple con la especificación de seguridad SSL predeterminada del navegador. Por lo tanto, puede hacer que la conexión de su página web cumpla con la especificación de seguridad SSL del navegador a través de la configuración del router y establecer una conexión HTTPS segura.Los routers ASUS proporcionan 2 tipos de certificados; consulte las siguientes preguntas frecuentes[Router inalámbrico] ¿Cómo acceder a la página de configuración de la GUI web del router ASUS a través de HTTPS?[Solución de problemas] Cómo solucionar al abrir la GUI WEB del router ASUS aparece \"Su conexión no es privada\"Si desea utilizar su propio certificado para importar al router ASUS, siga los pasos a continuación:Nota: Este método requiere que primero se habilite la función DDNS de ASUS. Para conocer el método de configuración, consulte las preguntas frecuentes sobre la introducción y configuración de DDNS [router inalámbrico].1. Conecte su dispositivo (portátil, teléfono inteligente) al router mediante una conexión por cable o WiFi e ingrese la IP de la LAN del router o la URL del router https://www.asusrouter.com en la GUI WEB.  Consulte [Router inalámbrico] Cómo ingresar a la página de configuración del router (GUI web) para obtener más información.2. Ingrese el nombre de usuario y la contraseña de su router para iniciar sesión.3. Vaya a [WAN] > [DDNS] > seleccione [Importar su propio certificado] en Certificado HTTPS/SSL > haga clic en [Cargar].4. Haga clic en [Elegir archivo] para cargar el archivo que desea importar y haga clic en [Aceptar].5. Haga clic en [Aplicar] para guardar la configuración.Puede ver [Activo] en el estado del certificado del servidor.Preguntas frecuentes (FAQ)1. ¿No se pueden activar las credenciales después de importar las suyas propias? a. Confirme si el archivo de certificado se puede utilizar normalmente en otros dispositivos. b. Utilice las credenciales proporcionadas por el router ASUS. C. Actualice la versión de firmware de su router ASUS a la última versión. Después de actualizar el firmware, se recomienda restaurar el router a los valores predeterminados originales de fábrica.  Para saber cómo restaurar los routers ASUS a los valores predeterminados de fábrica y usar QIS para configurar, consulte los siguientes enlaces de preguntas frecuentes:[Router inalámbrico] ¿Cómo actualizar el firmware de su router a la última versión?[Router inalámbrico] ¿Cómo restablecer el router a la configuración predeterminada de fábrica?[Router inalámbrico] ¿Cómo utilizar QIS (Configuración rápida de Internet) para configurar el router? (GUI web)[Router inalámbrico] ¿Cómo configurar el router Wi-Fi de ASUS a través de la aplicación ASUS Router? (QIS, configuración rápida de Internet)¿Cómo obtener la (Utilidad/Firmware)?Puede descargar los controladores, software, firmware y manuales de usuario más recientes en el Centro de descargas de ASUS .Si necesita más información sobre el Centro de descargas de ASUS , consulte este enlace",
+            "_rid": "34UbAN-0IBsBAAAAAAAAAA==",
+            "_self": "dbs/34UbAA==/colls/34UbAN-0IBs=/docs/34UbAN-0IBsBAAAAAAAAAA==/",
+            "_etag": "\"270032b2-0000-2300-0000-6684f51e0000\"",
+            "_attachments": "attachments/",
+            "_ts": 1719989534
+        }
 
     async def get_language_by_websitecode_dev(self, websitecode: str) -> Optional[str]:
-        query = f"SELECT c.lang FROM c WHERE c.websitecode = '{websitecode}'"
-        df = self.query_cosmos("FAQ_LanguageMapping_ForOpenAI", query)
-        return df.iloc[0]["lang"] if not df.empty else None
+        # query = f"SELECT c.lang FROM c WHERE c.websitecode = '{websitecode}'"
+        # df = self.query_cosmos("FAQ_LanguageMapping_ForOpenAI", query)
+        # return df.iloc[0]["lang"] if not df.empty else None
+        return "es-es"
 
     async def get_kb_article_dev(self,lang: str, kb_no: int) -> Optional[dict]:
-        query = f"SELECT * FROM c WHERE c.lang = '{lang}' AND c.kb_no = {kb_no}"
-        df = self.query_cosmos("ApChatbotKnowledge", query)
-        return df.iloc[0].to_dict() if not df.empty else None
+        # query = f"SELECT * FROM c WHERE c.lang = '{lang}' AND c.kb_no = {kb_no}"
+        # df = self.query_cosmos("ApChatbotKnowledge", query)
+        # return df.iloc[0].to_dict() if not df.empty else None
+        return {
+            "id": "1050571_es-es",
+            "kb_no": 1050571,
+            "lang": "es-es",
+            "title": "[Router inalámbrico] Cómo cargar su propio certificado (HTTPS/SSL) en el router ASUS",
+            "summary": "ASUS routers may display a warning message when connecting via HTTPS due to the routers self-signed certificate not being trusted by the browsers default SSL security specification. Users can make their connection secure by adjusting router settings or importing their own certificate via the routers DDNS function. The FAQ provides step-by-step instructions on how to import a certificate and troubleshoot any issues that may arise.",
+            "content": "Cuando intenta conectarse a un router ASUS a través de HTTPS en su navegador, puede aparecer un mensaje de advertencia \"Su conexión no es privada\", lo que indica que el certificado de seguridad de la URL no es confiable. Esto se debe a que el certificado predeterminado del router está auto firmado, lo que no cumple con la especificación de seguridad SSL predeterminada del navegador. Por lo tanto, puede hacer que la conexión de su página web cumpla con la especificación de seguridad SSL del navegador a través de la configuración del router y establecer una conexión HTTPS segura.Los routers ASUS proporcionan 2 tipos de certificados; consulte las siguientes preguntas frecuentes[Router inalámbrico] ¿Cómo acceder a la página de configuración de la GUI web del router ASUS a través de HTTPS?[Solución de problemas] Cómo solucionar al abrir la GUI WEB del router ASUS aparece \"Su conexión no es privada\"Si desea utilizar su propio certificado para importar al router ASUS, siga los pasos a continuación:Nota: Este método requiere que primero se habilite la función DDNS de ASUS. Para conocer el método de configuración, consulte las preguntas frecuentes sobre la introducción y configuración de DDNS [router inalámbrico].1. Conecte su dispositivo (portátil, teléfono inteligente) al router mediante una conexión por cable o WiFi e ingrese la IP de la LAN del router o la URL del router https://www.asusrouter.com en la GUI WEB.  Consulte [Router inalámbrico] Cómo ingresar a la página de configuración del router (GUI web) para obtener más información.2. Ingrese el nombre de usuario y la contraseña de su router para iniciar sesión.3. Vaya a [WAN] > [DDNS] > seleccione [Importar su propio certificado] en Certificado HTTPS/SSL > haga clic en [Cargar].4. Haga clic en [Elegir archivo] para cargar el archivo que desea importar y haga clic en [Aceptar].5. Haga clic en [Aplicar] para guardar la configuración.Puede ver [Activo] en el estado del certificado del servidor.Preguntas frecuentes (FAQ)1. ¿No se pueden activar las credenciales después de importar las suyas propias? a. Confirme si el archivo de certificado se puede utilizar normalmente en otros dispositivos. b. Utilice las credenciales proporcionadas por el router ASUS. C. Actualice la versión de firmware de su router ASUS a la última versión. Después de actualizar el firmware, se recomienda restaurar el router a los valores predeterminados originales de fábrica.  Para saber cómo restaurar los routers ASUS a los valores predeterminados de fábrica y usar QIS para configurar, consulte los siguientes enlaces de preguntas frecuentes:[Router inalámbrico] ¿Cómo actualizar el firmware de su router a la última versión?[Router inalámbrico] ¿Cómo restablecer el router a la configuración predeterminada de fábrica?[Router inalámbrico] ¿Cómo utilizar QIS (Configuración rápida de Internet) para configurar el router? (GUI web)[Router inalámbrico] ¿Cómo configurar el router Wi-Fi de ASUS a través de la aplicación ASUS Router? (QIS, configuración rápida de Internet)¿Cómo obtener la (Utilidad/Firmware)?Puede descargar los controladores, software, firmware y manuales de usuario más recientes en el Centro de descargas de ASUS .Si necesita más información sobre el Centro de descargas de ASUS , consulte este enlace",
+            "_rid": "34UbAN-0IBsBAAAAAAAAAA==",
+            "_self": "dbs/34UbAA==/colls/34UbAN-0IBs=/docs/34UbAN-0IBsBAAAAAAAAAA==/",
+            "_etag": "\"270032b2-0000-2300-0000-6684f51e0000\"",
+            "_attachments": "attachments/",
+            "_ts": 1719989534
+        }
 
     async def get_chatfaq(self, limit: int = 1) -> pd.DataFrame:
         """

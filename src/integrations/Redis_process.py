@@ -43,14 +43,19 @@ class RedisConfig:
             "hide_max": 2001,
         }
 
-        async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data)) as response:
-            response_json = await response.json()
-            top1_faq = response_json.get("result").get("faqs")[0]
+        # async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data)) as response:
+        #     response_json = await response.json()
+        #     top1_faq = response_json.get("result").get("faqs")[0]
 
+        # return {
+        #     "faq": top1_faq["kb_no"],
+        #     "cosineSimilarity": top1_faq["cosineSimilarity"],
+        #     "hints_id": top1_faq["key"].split("-")[-1],
+        # }
         return {
-            "faq": top1_faq["kb_no"],
-            "cosineSimilarity": top1_faq["cosineSimilarity"],
-            "hints_id": top1_faq["key"].split("-")[-1],
+            "faq": 1042539,
+            "cosineSimilarity": 0.9601799249649,
+            "hints_id": 70876,
         }
 
     def search_redis(self, query: str):
@@ -184,21 +189,36 @@ class RedisConfig:
         }
         # print("Redis FAQ 請求資料:", data)
         try:
-            async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data), timeout=aiohttp.ClientTimeout(total=20)) as response:
-                # 確保 response.json() 成功解析並且包含 "result" 和 "faqs"
-                response_json = await response.json()
+            # async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data), timeout=aiohttp.ClientTimeout(total=20)) as response:
+            #     # 確保 response.json() 成功解析並且包含 "result" 和 "faqs"
+            #     response_json = await response.json()
                 
-                # print(json.dumps(data))
-                # print(response_json)
-                if not response_json:
-                    raise ValueError("返回的 JSON 資料為空")
+            #     # print(json.dumps(data))
+            #     # print(response_json)
+            #     if not response_json:
+            #         raise ValueError("返回的 JSON 資料為空")
                 
-                result = response_json.get("result")
-                if not result or "faqs" not in result:
-                    raise KeyError('"faqs" 不存在於返回的結果中')
-
-                faqs = result["faqs"]
-                return {
+            #     result = response_json.get("result")
+            #     if not result or "faqs" not in result:
+            #         raise KeyError('"faqs" 不存在於返回的結果中')
+            
+            result={
+                "faqs": [
+                {
+                    "kb_no": 1042539,
+                    "websiteCode": "all",
+                    "productLine": "",
+                    "key": "genio_intent:4.0-all-1042539-999-70876",
+                    "type": "question",
+                    "hide": 999,
+                    "cosineSimilarity": 0.9601799249649
+                }
+                ],
+                "record_found_at": 1
+            }
+            
+            faqs = result["faqs"]
+            return {
                     "faq": [faq.get("kb_no") for faq in faqs],
                     "cosineSimilarity": [faq.get("cosineSimilarity") for faq in faqs],
                     "productLine": [faq.get("productLine") for faq in faqs],

@@ -278,20 +278,44 @@ class KeywordSearch(CosmosConfig):
         self.container = self.database.get_container_client(self.container_name)
 
     def get_intent_dict(self):
-        query = "select c.intent, c.keyword from c"
-        results = list(
-            self.container.query_items(query=query, enable_cross_partition_query=True)
-        )
-        # process dict
-        intent_dict = {}
-        for item in results:
-            intent = item["intent"]
-            keyword = item["keyword"].strip()
-            if intent in intent_dict:
-                intent_dict[intent].append(keyword)
-            else:
-                intent_dict[intent] = [keyword]
-        return intent_dict
+        # query = "select c.intent, c.keyword from c"
+        # results = list(
+        #     self.container.query_items(query=query, enable_cross_partition_query=True)
+        # )
+        # # process dict
+        # intent_dict = {}
+        # for item in results:
+        #     intent = item["intent"]
+        #     keyword = item["keyword"].strip()
+        #     if intent in intent_dict:
+        #         intent_dict[intent].append(keyword)
+        #     else:
+        #         intent_dict[intent] = [keyword]
+        # return intent_dict
+        """返回模擬的意圖字典"""
+        return {
+            "Technical Support": [
+                "無法開機", "not power on", "黑屏", "藍屏",
+                "當機", "hang", "crash", "無法充電",
+                "沒有聲音", "no sound", "散熱", "過熱"
+            ],
+            "Inquire Repair Status": [
+                "維修進度", "repair status", "檢修狀態",
+                "維修到哪", "維修情況", "修理進度"
+            ],
+            "Product Registration": [
+                "註冊", "register", "登錄", "登記",
+                "product registration", "會員註冊"
+            ],
+            "Inquire Product Warranty Period": [
+                "保固", "warranty", "保修期",
+                "過保", "維修保固", "保固期限"
+            ],
+            "Purchasing/Recommendation of ASUS Products": [
+                "推薦", "recommend", "購買", "buy",
+                "想買", "purchase", "該買哪一款"
+            ]
+        }
 
 
 class ServiceDiscriminator():

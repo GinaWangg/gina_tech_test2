@@ -49,23 +49,33 @@ class UpdateService:
 
     def update_website_botname(self):
         """更新網站機器人名稱對應"""
-        container_name = "all_websitecode_productline"
-        container = self.containers.lookup_db.get_container_client(container_name)
+        # container_name = "all_websitecode_productline"
+        # container = self.containers.lookup_db.get_container_client(container_name)
 
-        query = """SELECT * FROM c"""
-        results = container.query_items(query, enable_cross_partition_query=True)
+        # query = """SELECT * FROM c"""
+        # results = container.query_items(query, enable_cross_partition_query=True)
 
-        new_PL_mappings = {}
-        new_productline_name_map = {}
-        for item in results:
-            if not new_PL_mappings.get(item.get("websiteCode")):
-                new_PL_mappings[item.get("websiteCode")] = set()
-                new_productline_name_map[item.get("websiteCode")] = {}
-            new_PL_mappings[item.get("websiteCode")].add(item.get("productLine"))
-            new_productline_name_map[item.get("websiteCode")][item.get("productLine")] = item.get("productLine_name")
+        # new_PL_mappings = {}
+        # new_productline_name_map = {}
+        # for item in results:
+        #     if not new_PL_mappings.get(item.get("websiteCode")):
+        #         new_PL_mappings[item.get("websiteCode")] = set()
+        #         new_productline_name_map[item.get("websiteCode")] = {}
+        #     new_PL_mappings[item.get("websiteCode")].add(item.get("productLine"))
+        #     new_productline_name_map[item.get("websiteCode")][item.get("productLine")] = item.get("productLine_name")
 
-        self.containers.PL_mappings = new_PL_mappings
-        self.containers.productline_name_map = new_productline_name_map
+        # self.containers.PL_mappings = new_PL_mappings
+        # self.containers.productline_name_map = new_productline_name_map
+
+        self.containers.PL_mappings = {
+            "ar": {"chromebook", "motherboard"}
+        }
+        self.containers.productline_name_map = {
+            "ar": {
+                "chromebook": "Chromebook",
+                "motherboard": "Main Board / Video card"
+            }
+        }
         
         return {"message": "PL_mappings update success"}
 
@@ -95,21 +105,31 @@ class UpdateService:
         return {"message": "KB_mappings update success"}
 
     def update_specific_KB(self):
-        """更新特定知識庫對應"""
-        container_name = "specific_kb_bot_scope"
-        container = self.containers.lookup_db.get_container_client(container_name)
+        # """更新特定知識庫對應"""
+        # container_name = "specific_kb_bot_scope"
+        # container = self.containers.lookup_db.get_container_client(container_name)
 
-        query = """SELECT * FROM c"""
-        results = container.query_items(query, enable_cross_partition_query=True)
+        # query = """SELECT * FROM c"""
+        # results = container.query_items(query, enable_cross_partition_query=True)
 
-        new_specific_kb_mappings = {
-            f"{item.get('kb_no')}_{item.get('bot_scope')}": {
-                "id": item.get("id"),
-                "correct_kb_no": int(item.get("correct_kb_no")),
+        # new_specific_kb_mappings = {
+        #     f"{item.get('kb_no')}_{item.get('bot_scope')}": {
+        #         "id": item.get("id"),
+        #         "correct_kb_no": int(item.get("correct_kb_no")),
+        #     }
+        #     for item in results
+        # }
+
+        # self.containers.specific_kb_mappings = new_specific_kb_mappings
+        self.containers.specific_kb_mappings = {
+            "1015071_desktop": {
+                "id": "0",
+                "correct_kb_no": 1047955
+            },
+            "1015072_desktop": {
+                "id": "3",
+                "correct_kb_no": 1047158
             }
-            for item in results
         }
-
-        self.containers.specific_kb_mappings = new_specific_kb_mappings
         
         return {"message": "Specific_KB_mappings update success"}
