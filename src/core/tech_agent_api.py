@@ -910,7 +910,8 @@ class TechAgentProcessor:
                     "renderId": self.renderId,
                     "stream": False,
                     "type": "avatarText",
-                    "message": self.avatar_response['response'].answer,
+                    # "message": self.avatar_response['response'].answer,   # gina不知道為什麼這個一值跑不過
+                    "message": self.avatar_response['response'],
                     "remark": [],
                     "option": []
                 },

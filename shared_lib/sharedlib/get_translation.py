@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from google.cloud import translate_v2 as translate
 from langid.langid import LanguageIdentifier, model
 
-from sharedlib.call_llm_openai import CallOpenAI
+from shared_lib.sharedlib.call_llm_openai import CallOpenAI
 
 # --------------------------------- Function Definitions --------------------------------------------
 

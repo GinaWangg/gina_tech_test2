@@ -2,7 +2,7 @@
 import base64
 import json
 import asyncio
-from sharedlib.get_translation import *
+from shared_lib.sharedlib.get_translation import *
 
 class ChatFlow:
     def __init__(self, data: dict, last_hint: dict, container: object):
