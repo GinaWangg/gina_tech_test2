@@ -69,7 +69,7 @@ class RedisConfig:
             "hide_max": 999
         }
 
-        response = requests.post(url_v2, headers=headers, json=data)
+        response = requests.post(url_v2, headers=headers, json=data)  ## 這個沒有用poolingㄚㄚㄚ
 
         try:
             response.raise_for_status()
@@ -105,9 +105,10 @@ class RedisConfig:
             "hide_max": 2000,
         }
 
-        async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data)) as response:
-            response_json = await response.json()
-            return response_json.get("result").get("faqs")[0]["productLine"]
+        # async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data)) as response:
+        #     response_json = await response.json()
+        #     return response_json.get("result").get("faqs")[0]["productLine"]
+        return "notebook"   # 先寫死回傳 notebook 測試用  gina
 
     @async_retry(max_retries=3, delay=1)
     async def get_specific_service(self, search_info, site):
@@ -129,7 +130,7 @@ class RedisConfig:
                 "service_pl": top1_result.get("productLine"),
             }
 
-    def hide_to_service(self, hide):
+    def hide_to_service(self, hide):   # gina LLM的痕跡
         # （此處略，與你原始內容一致）
         ...
 
@@ -183,28 +184,73 @@ class RedisConfig:
             "hide_max": 999,
         }
         # print("Redis FAQ 請求資料:", data)
-        try:
-            async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data), timeout=aiohttp.ClientTimeout(total=20)) as response:
-                # 確保 response.json() 成功解析並且包含 "result" 和 "faqs"
-                response_json = await response.json()
-                
-                # print(json.dumps(data))
-                # print(response_json)
-                if not response_json:
-                    raise ValueError("返回的 JSON 資料為空")
-                
-                result = response_json.get("result")
-                if not result or "faqs" not in result:
-                    raise KeyError('"faqs" 不存在於返回的結果中')
+        faqs = [
+            {
+                "kb_no": 1051479,
+                "websiteCode": "tw",
+                "productLine": "chromebook,desktop,gaming_handhelds,motherboard,notebook",
+                "key": "tech_support:4.0--1051479-999-90028",
+                "type": "question",
+                "hide": 999,
+                "cosineSimilarity": 0.816743731499
+            },
+            {
+                "kb_no": 1038855,
+                "websiteCode": "tw",
+                "productLine": "chromebook,desktop,gaming_handhelds,notebook,nuc",
+                "key": "tech_support:4.0--1038855-999-11933",
+                "type": "question",
+                "hide": 999,
+                "cosineSimilarity": 0.751851916313
+            },
+            {
+                "kb_no": 1046480,
+                "websiteCode": "tw",
+                "productLine": "chromebook,desktop,gaming_handhelds,motherboard,notebook,nuc",
+                "key": "tech_support:4.0--1046480-999-26870",
+                "type": "question",
+                "hide": 999,
+                "cosineSimilarity": 0.701354265213
+            },
+            {
+                "kb_no": 1042613,
+                "websiteCode": "tw",
+                "productLine": "chromebook,desktop,gaming_handhelds,notebook",
+                "key": "tech_support:4.0--1042613-999-9313",
+                "type": "question",
+                "hide": 999,
+                "cosineSimilarity": 0.700322508812
+            }
+        ]
+        return {
+            "faq": [faq.get("kb_no") for faq in faqs],
+            "cosineSimilarity": [faq.get("cosineSimilarity") for faq in faqs],
+            "productLine": [faq.get("productLine") for faq in faqs],
+        }
 
-                faqs = result["faqs"]
-                return {
-                    "faq": [faq.get("kb_no") for faq in faqs],
-                    "cosineSimilarity": [faq.get("cosineSimilarity") for faq in faqs],
-                    "productLine": [faq.get("productLine") for faq in faqs],
-                }
 
-        except Exception as e:
-            print(f"處理 FAQ 時發生錯誤: {e}")
-            return {}  # 返回空字典或其他適當的錯誤處理結果
+        # try:
+        #     async with self.session.post(self.redis_url, headers=self.headers, data=json.dumps(data), timeout=aiohttp.ClientTimeout(total=20)) as response:
+        #         # 確保 response.json() 成功解析並且包含 "result" 和 "faqs"
+        #         response_json = await response.json()
+                
+        #         # print(json.dumps(data))
+        #         # print(response_json)
+        #         if not response_json:
+        #             raise ValueError("返回的 JSON 資料為空")
+                
+        #         result = response_json.get("result")
+        #         if not result or "faqs" not in result:
+        #             raise KeyError('"faqs" 不存在於返回的結果中')
+
+        #         faqs = result["faqs"]
+        #         return {
+        #             "faq": [faq.get("kb_no") for faq in faqs],
+        #             "cosineSimilarity": [faq.get("cosineSimilarity") for faq in faqs],
+        #             "productLine": [faq.get("productLine") for faq in faqs],
+        #         }
+
+        # except Exception as e:
+        #     print(f"處理 FAQ 時發生錯誤: {e}")
+        #     return {}  # 返回空字典或其他適當的錯誤處理結果
 
