@@ -64,7 +64,7 @@ class DependencyContainer:
         self.redis_config = RedisConfig(config=self.cfg, session=self.aiohttp_session)
         self.cosmos_settings = CosmosConfig(config=self.cfg)
         self.sentence_group_classification = SentenceGroupClassification(config=self.cfg)
-        self.lookup_db = self.cosmos_settings.lookup_db
+        # self.lookup_db = self.cosmos_settings.lookup_db # gina 為了測試copilot 暫時不跑
 
         self.base_service = BaseService(config=self.cfg)
         self.sd = ServiceDiscriminator(self.redis_config, self.base_service)
