@@ -141,6 +141,9 @@ scheduler.add_job(
     trigger=IntervalTrigger(hours=1, timezone=timezone('Asia/Taipei'))
 )
 ```
+### Code Validation Before Commit
+After completing any new feature or modification, always run Pytest to ensure that all existing and new test cases pass successfully before committing your code.
+
 
 ## Common Pitfalls
 
@@ -149,3 +152,4 @@ scheduler.add_job(
 3. **Using bare `except:`**: Always catch specific exceptions (AbortException, WarningException, or stdlib exceptions)
 4. **Modifying request body**: Middleware already handles body parsing - don't read `request.body()` again
 5. **Missing PATH_TO_CONTAINER entry**: New endpoints won't log to Cosmos unless added to mapping
+6. **Skipping tests**: Always run pytest after code changes to ensure functionality and prevent regressions

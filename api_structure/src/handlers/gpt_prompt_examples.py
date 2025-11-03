@@ -1,7 +1,7 @@
 """GPT prompt examples for various use cases."""
 
-from src.clients.gpt import GptClient
-from core.timer import timed
+from api_structure.src.clients.gpt import GptClient
+from api_structure.core.timer import timed
 
 
 class GptTaskHandler:

@@ -3,9 +3,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 import json
-from core.logger import create_log_context, set_end_time
-from src.db.write_cosmos import write_log_to_cosmos
-from core.exception_handlers import AbortException
+from api_structure.core.logger import create_log_context, set_end_time
+from api_structure.src.db.write_cosmos import write_log_to_cosmos
+from api_structure.core.exception_handlers import AbortException
 from traceback import format_exc
 
 # 改成你專案的名稱

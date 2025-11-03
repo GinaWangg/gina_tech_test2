@@ -1,7 +1,7 @@
 import random
 import asyncio
-from core.exception_handlers import AbortException, WarningException
-from core.timer import timed
+from api_structure.core.exception_handlers import AbortException, WarningException
+from api_structure.core.timer import timed
 
 @timed(task_name="example_abort")
 async def example_abort(text: str) -> str:

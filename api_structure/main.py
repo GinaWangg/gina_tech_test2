@@ -5,8 +5,8 @@ import core.config
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
-from src.clients.gpt import GptClient
-from src.clients.aiohttp_client import AiohttpClient
+from api_structure.src.clients.gpt import GptClient
+from api_structure.src.clients.aiohttp_client import AiohttpClient
 # from src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
@@ -120,7 +120,7 @@ scheduler.start()
 
 
 # --------------------- exception handlers ------------------------------------
-from core import exception_handlers as exc_handler
+from api_structure.core import exception_handlers as exc_handler
 from fastapi import HTTPException
 
 app.add_exception_handler(
@@ -131,35 +131,11 @@ app.add_exception_handler(
 
 # --------------------- endpoints ---------------------------------------------
 
-from fastapi import Response
-from pydantic import BaseModel
+# from fastapi import Response
+# from pydantic import BaseModel
 
-class Test(BaseModel):
-    case_id: str
-    chat_id: str
+# routers
 
-from fastapi import FastAPI, Request, Response
-from src.routers.test_error import test_endpoint
-@app.post("/v1/test_api")
-async def v1_test_api(
-    input: Test, 
-    response: Response, 
-    request: Request):
-    """Test API endpoint - output_data is automatically captured by middleware."""
-    result = await test_endpoint(input.chat_id)
-    return result
-
-from src.routers.use_gpt import use_gpt_endpoint
-from pydantic import BaseModel
-class TestGptClass(BaseModel):
-    case_id: str
-    session_id: str
-
-@app.post("/v1/test_gpt")
-async def v1_test_gpt(input: TestGptClass, request: Request, response: Response):
-    """Test GPT client endpoint - output_data is automatically captured by middleware."""
-    result = await use_gpt_endpoint(request)
-    return result
 
 # root endpoint
 @app.get("/")
