@@ -1,6 +1,7 @@
 """Router for tech agent endpoints."""
 
 from fastapi import APIRouter, Request
+
 from api_structure.src.models.tech_agent_models import (
     TechAgentRequest,
     TechAgentResponse,

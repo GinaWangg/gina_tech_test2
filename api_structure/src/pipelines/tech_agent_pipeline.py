@@ -1,9 +1,10 @@
 """Pipeline for tech agent request processing."""
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from api_structure.core.timer import timed
-from api_structure.src.models.tech_agent_models import TechAgentRequest
 from api_structure.src.handlers.tech_agent_handler import TechAgentHandler
+from api_structure.src.models.tech_agent_models import TechAgentRequest
 
 
 class TechAgentPipeline:

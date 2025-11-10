@@ -1,13 +1,14 @@
 """Handler for tech agent processing logic."""
 
 import uuid
-from typing import Dict, Any
-from api_structure.core.timer import timed
+from typing import Any, Dict
+
 from api_structure.core.logger import set_extract_log
+from api_structure.core.timer import timed
 from api_structure.src.models.tech_agent_models import (
-    TechAgentRequest,
     RenderItem,
     RenderOption,
+    TechAgentRequest,
 )
 
 
@@ -70,31 +71,33 @@ class TechAgentHandler:
             Response with product line options
         """
         # TODO: 實際應執行以下邏輯（目前因權限問題使用固定回應）
-        # reask_result = await service_process.technical_support_productline_reask(
-        #     user_input=request.user_input,
-        #     faqs_wo_pl=faqs_wo_pl,
-        #     site=request.websitecode,
-        #     lang=lang,
-        #     system_code=request.system_code,
+        # reask_result = await (
+        #     service_process.technical_support_productline_reask(
+        #         user_input=request.user_input,
+        #         faqs_wo_pl=faqs_wo_pl,
+        #         site=request.websitecode,
+        #         lang=lang,
+        #         system_code=request.system_code,
+        #     )
         # )
 
         # 固定的產品線選項（模擬回應）
         product_line_options = [
-            {
-                "name": "筆記型電腦",
-                "value": "notebook",
-                "icon": "laptop",
-            },
-            {
-                "name": "桌上型電腦",
-                "value": "desktop",
-                "icon": "desktop",
-            },
-            {
-                "name": "手機",
-                "value": "phone",
-                "icon": "phone",
-            },
+            RenderOption(
+                name="筆記型電腦",
+                value="notebook",
+                icon="laptop",
+            ),
+            RenderOption(
+                name="桌上型電腦",
+                value="desktop",
+                icon="desktop",
+            ),
+            RenderOption(
+                name="手機",
+                value="phone",
+                icon="phone",
+            ),
         ]
 
         render_item = RenderItem(
@@ -106,9 +109,7 @@ class TechAgentHandler:
                 "能告訴我是哪個產品類別嗎？"
             ),
             remark=[],
-            option=[
-                RenderOption(**opt) for opt in product_line_options
-            ],
+            option=product_line_options,
         )
 
         return {"render_items": [render_item]}
@@ -134,18 +135,24 @@ class TechAgentHandler:
         """
         # TODO: 實際應執行以下邏輯（目前因權限問題使用固定回應）
         # 1. 搜尋知識庫
-        # response = await service_discriminator.service_discreminator_with_productline(
-        #     user_question_english=search_info,
-        #     site=request.websitecode,
-        #     specific_kb_mappings=containers.specific_kb_mappings,
-        #     productLine=request.product_line,
+        # response = await (
+        #     service_discriminator.service_discreminator_with_productline(
+        #         user_question_english=search_info,
+        #         site=request.websitecode,
+        #         specific_kb_mappings=containers.specific_kb_mappings,
+        #         productLine=request.product_line,
+        #     )
         # )
         #
         # 2. 生成 RAG 回應
-        # rag_response = await service_process.technical_support_hint_create(...)
+        # rag_response = await (
+        #     service_process.technical_support_hint_create(...)
+        # )
         #
         # 3. 生成 Avatar 回應
-        # avatar_response = await ts_rag.reply_with_faq_gemini_sys_avatar(...)
+        # avatar_response = await (
+        #     ts_rag.reply_with_faq_gemini_sys_avatar(...)
+        # )
 
         # 模擬技術支援回應（固定回應）
         mock_kb_content = {

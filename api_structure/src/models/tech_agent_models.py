@@ -1,6 +1,7 @@
 """Data models for tech agent API requests and responses."""
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -29,15 +30,15 @@ class KnowledgeBase(BaseModel):
 class RenderOption(BaseModel):
     """Render option for response."""
 
-    name: Optional[str] = Field(None, description="Option name")
-    value: Optional[str] = Field(None, description="Option value")
-    icon: Optional[str] = Field(None, description="Option icon")
-    type: Optional[str] = Field(None, description="Option type")
+    name: Optional[str] = Field(default=None, description="Option name")
+    value: Optional[str] = Field(default=None, description="Option value")
+    icon: Optional[str] = Field(default=None, description="Option icon")
+    type: Optional[str] = Field(default=None, description="Option type")
     cards: Optional[List[Dict[str, Any]]] = Field(
-        None, description="FAQ cards"
+        default=None, description="FAQ cards"
     )
     answer: Optional[List[Dict[str, Any]]] = Field(
-        None, description="Answer data"
+        default=None, description="Answer data"
     )
 
 
