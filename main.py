@@ -142,36 +142,37 @@ async def tech_agent_api(user_input: TechAgentInput):
     tech_process = TechAgentProcessor(containers=containers, user_input=user_input)
     return await tech_process.process()
 
-@app.post("/tech_agent/stream")
-async def tech_agent_api_stream(user_input: TechAgentInput):
-    """技術支援 Streaming API"""
-    containers: DependencyContainer = app.state.container
-    processor = TechAgentProcessor(containers=containers, user_input=user_input)
+
+# @app.post("/tech_agent/stream")
+# async def tech_agent_api_stream(user_input: TechAgentInput):
+#     """技術支援 Streaming API"""
+#     containers: DependencyContainer = app.state.container
+#     processor = TechAgentProcessor(containers=containers, user_input=user_input)
     
-    async def event_generator():
-        try:
-            async for event in processor.process_stream():
-                # 使用 SSE (Server-Sent Events) 格式
-                json_data = json.dumps(event, ensure_ascii=False)
-                yield f"data: {json_data}\n\n"
-        except Exception as e:
-            logger.error(f"Streaming error: {e}", exc_info=True)
-            error_event = {
-                "status": 500,
-                "message": f"error: {str(e)}",
-                "result": {}
-            }
-            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+#     async def event_generator():
+#         try:
+#             async for event in processor.process_stream():
+#                 # 使用 SSE (Server-Sent Events) 格式
+#                 json_data = json.dumps(event, ensure_ascii=False)
+#                 yield f"data: {json_data}\n\n"
+#         except Exception as e:
+#             logger.error(f"Streaming error: {e}", exc_info=True)
+#             error_event = {
+#                 "status": 500,
+#                 "message": f"error: {str(e)}",
+#                 "result": {}
+#             }
+#             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
     
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # 關閉 Nginx 緩衝
-        }
-    )
+#     return StreamingResponse(
+#         event_generator(),
+#         media_type="text/event-stream",
+#         headers={
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "X-Accel-Buffering": "no",  # 關閉 Nginx 緩衝
+#         }
+#     )
 
 
 if __name__ == "__main__":
