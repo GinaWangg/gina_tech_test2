@@ -1,41 +1,133 @@
 # 統一載入設定檔
 import os
+import asyncio
+import pickle
 import core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
-from api_structure.src.clients.gpt import GptClient
-from api_structure.src.clients.aiohttp_client import AiohttpClient
+from src.clients.gpt import GptClient
+from src.clients.aiohttp_client import AiohttpClient
 # from src.db.cosmos_client import CosmosDbClient
+import aiohttp
+from src.integrations.containers import DependencyContainer
+from src.services.update_service import UpdateService
+
+
+async def load_rag_mappings(containers, update_service):
+    """非阻塞載入 RAG mappings"""
+    try:
+        loop = asyncio.get_event_loop()
+        
+        def load_files():
+            with open("config/rag_hint_id_index_mapping.pkl", "rb") as f1, \
+                 open("config/rag_mappings.pkl", "rb") as f2:
+                return pickle.load(f1), pickle.load(f2)
+        
+        # 在線程池中執行，不阻塞事件循環
+        mapping1, mapping2 = await loop.run_in_executor(None, load_files)
+        
+        containers.rag_hint_id_index_mapping = mapping1
+        containers.rag_mappings = mapping2
+        
+    except Exception as e:
+        print(f"[Memory Load Error] {e}, updating from database...")
+        await update_service.update_technical_rag()
+
+
+async def load_kb_mappings(containers, update_service):
+    """非阻塞載入 KB mappings"""
+    try:
+        loop = asyncio.get_event_loop()
+        
+        def load_file():
+            with open("config/kb_mappings.pkl", "rb") as f:
+                return pickle.load(f)
+        
+        containers.KB_mappings = await loop.run_in_executor(None, load_file)
+        
+    except Exception as e:
+        print(f"[Load KB Mapping Error] {e}, updating from database...")
+        await update_service.update_KB()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
-
-    # aiohttp client with connection pooling
-    aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
-    )
-    await aiohttp_client.initialize()
-    app.state.aiohttp_client = aiohttp_client
-
-    # cosmos_client = CosmosDbClient()
-    # await cosmos_client.initialize()
-    # app.state.cosmos_client = cosmos_client
-
-    yield
     
-    print("Application shutting down...")
-    await app.state.gpt_client.close()
-    await app.state.aiohttp_client.close()
-    # await app.state.cosmos_client.close()
+    # Initialize aiohttp session with connection pooling
+    connector = aiohttp.TCPConnector(
+        limit=100,
+        limit_per_host=30,
+        ttl_dns_cache=300,
+        enable_cleanup_closed=True,
+        force_close=False,
+        keepalive_timeout=30
+    )
+    
+    timeout = aiohttp.ClientTimeout(
+        total=60,
+        connect=10,
+        sock_read=30
+    )
+    
+    aiohttp_session = aiohttp.ClientSession(
+        connector=connector,
+        timeout=timeout,
+        trust_env=True
+    )
+    
+    # Initialize DependencyContainer
+    containers = DependencyContainer()
+    await containers.init_async(aiohttp_session=aiohttp_session)
+    app.state.container = containers
+    
+    # Initialize update service
+    update_service = UpdateService(containers)
+    
+    try:
+        # Load mappings in parallel
+        results = await asyncio.gather(
+            load_rag_mappings(containers, update_service),
+            load_kb_mappings(containers, update_service),
+            asyncio.to_thread(update_service.update_website_botname),
+            asyncio.to_thread(update_service.update_specific_KB),
+            return_exceptions=True
+        )
+        
+        # Check for errors
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                print(f"初始化任務 {i} 失敗: {result}")
+    
+        # connection pooling (for api_structure examples)
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+
+        # aiohttp client (for api_structure examples)
+        aiohttp_client = AiohttpClient(
+            timeout=30,
+            connector_limit=100,
+            connector_limit_per_host=30
+        )
+        await aiohttp_client.initialize()
+        app.state.aiohttp_client = aiohttp_client
+
+        # cosmos_client = CosmosDbClient()
+        # await cosmos_client.initialize()
+        # app.state.cosmos_client = cosmos_client
+
+        yield
+    
+    finally:
+        print("Application shutting down...")
+        await aiohttp_session.close()
+        await app.state.gpt_client.close()
+        await app.state.aiohttp_client.close()
+        # await app.state.cosmos_client.close()
+        await asyncio.sleep(0.25)
 
 
 #---------------------- FastAPI App & middleware ------------------------------
@@ -135,6 +227,8 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from src.routers.tech_agent_router import router as tech_agent_router
+app.include_router(tech_agent_router)
 
 
 # root endpoint
