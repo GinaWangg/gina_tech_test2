@@ -1,8 +1,9 @@
 """Pipeline for tech agent processing."""
 
 from fastapi import Request
-from api_structure.src.handlers.tech_agent_handler import TechAgentHandler
+
 from api_structure.core.timer import timed
+from api_structure.src.handlers.tech_agent_handler import TechAgentHandler
 
 
 class TechAgentPipeline:

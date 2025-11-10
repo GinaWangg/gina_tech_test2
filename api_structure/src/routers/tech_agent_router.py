@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
+
 from api_structure.src.pipelines.tech_agent_pipeline import TechAgentPipeline
 
 router = APIRouter(prefix="/v1", tags=["tech_agent"])

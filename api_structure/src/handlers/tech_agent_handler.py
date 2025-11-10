@@ -2,7 +2,7 @@
 
 import time
 import uuid
-from datetime import datetime
+
 from api_structure.core.timer import timed
 
 
@@ -30,13 +30,11 @@ class TechAgentHandler:
         # Generate unique IDs
         render_id = str(uuid.uuid4())
 
-        # Determine response type based on product_line
+        # Determine response based on product_line
         if not user_input.product_line:
-            response_type = "avatarAskProductLine"
             result = await self._handle_no_product_line(render_id, user_input)
         else:
             # Default to technical support response
-            response_type = "avatarTechnicalSupport"
             result = await self._handle_technical_support(
                 render_id, user_input
             )
@@ -49,7 +47,7 @@ class TechAgentHandler:
             "status": 200,
             "message": "OK",
             "result": result,
-            "exec_time": exec_time
+            "exec_time": exec_time,
         }
 
     @timed(task_name="handle_no_product_line")
@@ -70,21 +68,9 @@ class TechAgentHandler:
         )
 
         product_line_options = [
-            {
-                "name": "筆記型電腦",
-                "value": "notebook",
-                "icon": "laptop"
-            },
-            {
-                "name": "桌上型電腦",
-                "value": "desktop",
-                "icon": "desktop"
-            },
-            {
-                "name": "手機",
-                "value": "mobile",
-                "icon": "phone"
-            }
+            {"name": "筆記型電腦", "value": "notebook", "icon": "laptop"},
+            {"name": "桌上型電腦", "value": "desktop", "icon": "desktop"},
+            {"name": "手機", "value": "mobile", "icon": "phone"},
         ]
 
         return [
@@ -94,7 +80,7 @@ class TechAgentHandler:
                 "type": "avatarAskProductLine",
                 "message": avatar_message,
                 "remark": [],
-                "option": product_line_options
+                "option": product_line_options,
             }
         ]
 
@@ -122,9 +108,9 @@ class TechAgentHandler:
                 {
                     "link": "https://www.asus.com/support/",
                     "title": "常見問題解決方案",
-                    "content": "這裡是針對您問題的解決方案說明..."
+                    "content": "這裡是針對您問題的解決方案說明...",
                 }
-            ]
+            ],
         }
 
         return [
@@ -134,6 +120,6 @@ class TechAgentHandler:
                 "type": "avatarTechnicalSupport",
                 "message": avatar_message,
                 "remark": [],
-                "option": [faq_card]
+                "option": [faq_card],
             }
         ]
