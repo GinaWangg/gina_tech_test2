@@ -1,6 +1,6 @@
 # 統一載入設定檔
 import os
-import api_structure.core.config
+import core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
@@ -50,7 +50,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from api_structure.core.middleware import RequestLoggingMiddleware
+from core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
@@ -135,8 +135,6 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
-from api_structure.src.routers.tech_agent_router import router as tech_agent_router
-app.include_router(tech_agent_router)
 
 
 # root endpoint
