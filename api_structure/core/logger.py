@@ -34,9 +34,13 @@ class LogContext:
 
 
 def create_log_context(input_data: Dict[str, Any]):
-    case_id = input_data.get("case_id", "no_case_id")
-    if not case_id:    # 改成你專案的名稱
-        raise ValueError("input_data must contain 'case_id'")
+    # 對於 tech_agent，使用 session_id 作為 case_id
+    case_id = input_data.get(
+        "case_id", 
+        input_data.get("session_id", "no_case_id")
+    )
+    if not case_id or case_id == "no_case_id":
+        case_id = f"no_case_id_{int(time.time())}"
     
     ctx = LogContext(
         case_id=case_id,

@@ -13,6 +13,7 @@ PATH_TO_CONTAINER: dict[str, str] = {
     "/v1/test_gpt": "test_gpt",
     "/v1/test_api": "test_api",
     "/v1/test_aiohttp": "test_aiohttp",
+    "/v1/tech_agent": "tech_agent",
 }
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -40,33 +41,23 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             
-            # 因為 StreamingResponse 所以擷取output比較麻煩
+            # 從回應中取得 body 內容
             response_body = b""
-            if isinstance(response, StreamingResponse):
-                # 收集所有 chunks
-                chunks = []
-                async for chunk in response.body_iterator:
-                    if isinstance(chunk, bytes):
-                        chunks.append(chunk)
-                    elif isinstance(chunk, (bytearray, memoryview)):
-                        chunks.append(bytes(chunk))
-                    elif isinstance(chunk, str):
-                        chunks.append(chunk.encode('utf-8'))
-                    else:
-                        chunks.append(str(chunk).encode('utf-8'))
-                
-                response_body = b''.join(chunks)
-                
-                # 重建 StreamingResponse
-                async def generate():
-                    yield response_body
-                
-                response = StreamingResponse(
-                    generate(),
-                    status_code=response.status_code,
-                    headers=response.headers,
-                    media_type=response.media_type
-                )
+            
+            # FastAPI 總是將回應包裝在 StreamingResponse 中
+            # 所以我們需要讀取 body_iterator
+            chunks = []
+            async for chunk in response.body_iterator:
+                if isinstance(chunk, bytes):
+                    chunks.append(chunk)
+                elif isinstance(chunk, (bytearray, memoryview)):
+                    chunks.append(bytes(chunk))
+                elif isinstance(chunk, str):
+                    chunks.append(chunk.encode('utf-8'))
+                else:
+                    chunks.append(str(chunk).encode('utf-8'))
+            
+            response_body = b''.join(chunks)
             
             # 嘗試解析和 print 響應內容
             if response_body:
