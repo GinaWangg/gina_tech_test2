@@ -13,6 +13,7 @@ PATH_TO_CONTAINER: dict[str, str] = {
     "/v1/test_gpt": "test_gpt",
     "/v1/test_api": "test_api",
     "/v1/test_aiohttp": "test_aiohttp",
+    "/v1/tech_agent": "tech_agent",
 }
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -40,9 +41,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             
-            # 因為 StreamingResponse 所以擷取output比較麻煩
+            # 擷取response body
             response_body = b""
-            if isinstance(response, StreamingResponse):
+            # Check for body_iterator (works for both StreamingResponse and _StreamingResponse)
+            if hasattr(response, 'body_iterator'):
                 # 收集所有 chunks
                 chunks = []
                 async for chunk in response.body_iterator:
@@ -67,6 +69,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     headers=response.headers,
                     media_type=response.media_type
                 )
+            elif hasattr(response, 'body'):
+                # 對於一般 Response (包括 JSONResponse)，直接從 body 讀取
+                response_body = response.body
             
             # 嘗試解析和 print 響應內容
             if response_body:

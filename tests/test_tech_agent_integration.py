@@ -3,9 +3,16 @@
 測試 /v1/tech_agent 端點是否能正常處理請求
 """
 
+import os
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+
+# Set mock environment variables before importing app
+os.environ['MYAPP_GPT4O_API_KEY'] = 'test-key'
+os.environ['MYAPP_GPT4O_RESOURCE_ENDPOINT'] = 'https://test-endpoint.com'
+os.environ['MYAPP_GPT4O_INTENTDETECT'] = 'test-model'
+
+from api_structure.main import app
 
 
 @pytest.fixture(scope="module")
