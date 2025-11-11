@@ -155,7 +155,9 @@ class MockTechSupportRAG:
             "response": type(
                 "obj",
                 (object,),
-                {"answer": "我了解您的筆電卡在登入畫面的問題。讓我協助您解決這個情況。"},
+                {
+                    "answer": "我了解您的筆電卡在登入畫面的問題。讓我協助您解決這個情況。"
+                },
             )()
         }
 
@@ -306,7 +308,7 @@ class MockDependencyContainer:
         self.sentence_group_classification = MockSentenceGroupClassification()
         self.base_service = MockBaseService()
         self.sd = MockServiceDiscriminator()
-        
+
         # Mock mappings (empty for now)
         self.KB_mappings = {}
         self.specific_kb_mappings = {}

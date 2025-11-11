@@ -14,15 +14,14 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from api_structure.core.logger import set_extract_log
 from api_structure.core.timer import timed
-from api_structure.core.logger import get_log_context, set_extract_log
-from api_structure.src.models.tech_agent_models import TechAgentInput
 from api_structure.src.clients.mock_container_client import (
-    MockDependencyContainer,
     MockChatFlow,
+    MockDependencyContainer,
     MockServiceProcess,
 )
-
+from api_structure.src.models.tech_agent_models import TechAgentInput
 
 # Constants
 TOP1_KB_SIMILARITY_THRESHOLD = 0.87
@@ -32,9 +31,7 @@ KB_THRESHOLD = 0.92
 class TechAgentHandler:
     """Handler for technical support agent processing."""
 
-    def __init__(
-        self, container: MockDependencyContainer, user_input: TechAgentInput
-    ):
+    def __init__(self, container: MockDependencyContainer, user_input: TechAgentInput):
         """Initialize the tech agent handler.
 
         Args:
@@ -197,7 +194,7 @@ class TechAgentHandler:
         # Process grouping results
         groups = (results_related or {}).get("groups", [])
         if groups:
-            statements = (groups[-1].get("statements") or [])
+            statements = groups[-1].get("statements") or []
             latest_group_statements = [s for s in statements if isinstance(s, str)]
             if latest_group_statements:
                 self.his_inputs = latest_group_statements.copy()
@@ -223,7 +220,7 @@ class TechAgentHandler:
         if self.last_hint and self.last_hint.get("hintType") == "productline-reask":
             # TODO: Enable when environment ready
             # prompt = [{"role": "user", "content": prompt_content}]
-            # tech_support_related = await self.chat_flow.container.base_service.GPT41_mini_response(prompt)
+            # tech_support_related = await self.chat_flow.container.base_service.GPT41_mini_response(prompt)  # noqa: E501
             pass
 
         log_json = json.dumps(self.user_info_dict, ensure_ascii=False, indent=2)
@@ -494,7 +491,11 @@ class TechAgentHandler:
                     "renderId": self.renderId,
                     "stream": False,
                     "type": "avatarAsk",
-                    "message": "你可以告訴我像是產品全名、型號，或你想問的活動名稱～比如「ROG Flow X16」或「我想查產品保固到期日」。給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！",
+                    "message": (
+                        "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
+                        "比如「ROG Flow X16」或「我想查產品保固到期日」。"
+                        "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！"
+                    ),
                     "remark": [],
                     "option": [
                         {
@@ -516,7 +517,9 @@ class TechAgentHandler:
                                 {"type": "inquireMode", "value": "intent"},
                                 {
                                     "type": "inquireKey",
-                                    "value": "purchasing-recommendation-of-asus-products",
+                                    "value": (
+                                        "purchasing-recommendation-" "of-asus-products"
+                                    ),
                                 },
                             ],
                         },
@@ -548,7 +551,10 @@ class TechAgentHandler:
         print(f"\n[執行時間] tech_agent_api 共耗時 {exec_time} 秒\n")
 
         cosmos_data = {
-            "id": f"{self.user_input.cus_id}-{self.user_input.session_id}-{self.user_input.chat_id}",
+            "id": (
+                f"{self.user_input.cus_id}-{self.user_input.session_id}-"
+                f"{self.user_input.chat_id}"
+            ),
             "cus_id": self.user_input.cus_id,
             "session_id": self.user_input.session_id,
             "chat_id": self.user_input.chat_id,

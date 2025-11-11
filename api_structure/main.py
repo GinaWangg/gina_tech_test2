@@ -1,14 +1,18 @@
 # 統一載入設定檔
 import os
-import api_structure.core.config
 
-#---------------------- Lifespan Configuration --------------------------------
-from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
-from api_structure.src.clients.gpt import GptClient
+
+# ---------------------- Lifespan Configuration --------------------------------
+from fastapi.concurrency import asynccontextmanager
+
+import api_structure.core.config  # noqa: F401
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.mock_container_client import MockDependencyContainer
+
 # from src.db.cosmos_client import CosmosDbClient
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,9 +24,7 @@ async def lifespan(app: FastAPI):
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
+        timeout=30, connector_limit=100, connector_limit_per_host=30
     )
     await aiohttp_client.initialize()
     app.state.aiohttp_client = aiohttp_client
@@ -37,7 +39,7 @@ async def lifespan(app: FastAPI):
     app.state.mock_container = mock_container
 
     yield
-    
+
     print("Application shutting down...")
     await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
@@ -45,29 +47,32 @@ async def lifespan(app: FastAPI):
     await app.state.mock_container.close()
 
 
-#---------------------- FastAPI App & middleware ------------------------------
-from fastapi.middleware.cors import CORSMiddleware
+# ---------------------- FastAPI App & middleware ------------------------------
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=['Content-Type'],
-    max_age=3600
+    allow_headers=["Content-Type"],
+    max_age=3600,
 )
 
-from api_structure.core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware  # noqa: E402
+
 app.add_middleware(RequestLoggingMiddleware)
 
 
 # --------------------- application insights ----------------------------------
 if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
-    ''' 地端上使用 可以用這段 '''
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+    """地端上使用 可以用這段"""
+    from opentelemetry import trace  # noqa: E402
+    from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
+    from opentelemetry.sdk.trace.export import (  # noqa: E402
+        BatchSpanProcessor,
+        ConsoleSpanExporter,
+    )
 
     # 設定 OpenTelemetry 追蹤 將追蹤資料輸出到終端控制台
     def setup_tracing():
@@ -75,7 +80,7 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
             provider = TracerProvider()
             trace.set_tracer_provider(provider)
             # terminal輸出
-            span_processor = BatchSpanProcessor(ConsoleSpanExporter()) 
+            span_processor = BatchSpanProcessor(ConsoleSpanExporter())
             provider.add_span_processor(span_processor)
             return provider
         else:
@@ -85,33 +90,38 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
     # tracer_provider = setup_tracing()
 
 else:
-    ''' azure上使用 可以用這段 '''
-    from azure.monitor.opentelemetry import configure_azure_monitor
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    """azure上使用 可以用這段"""
+    from azure.monitor.opentelemetry import configure_azure_monitor  # noqa: E402
+    from opentelemetry.instrumentation.fastapi import (  # noqa: E402
+        FastAPIInstrumentor,
+    )
 
     # Application Insights 的 Connection String
-    CONNECTION_STRING = os.getenv('MYAPP_CONNECTION_STRING')
+    CONNECTION_STRING = os.getenv("MYAPP_CONNECTION_STRING")
     if not CONNECTION_STRING:
-        raise ValueError(
-            "Environment variable 'MYAPP_CONNECTION_STRING' is not set.")
+        raise ValueError("Environment variable 'MYAPP_CONNECTION_STRING' is not set.")
 
     # 配置 Azure Monitor OpenTelemetry
     configure_azure_monitor(
-        connection_string=CONNECTION_STRING, 
-        enable_live_metrics=True
+        connection_string=CONNECTION_STRING, enable_live_metrics=True
     )
 
-''' 不管地端還是 azure 都要這段 '''
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+""" 不管地端還是 azure 都要這段 """
+from opentelemetry.instrumentation.fastapi import (  # noqa: E402, F811
+    FastAPIInstrumentor,
+)
+
 FastAPIInstrumentor.instrument_app(app)
 
 
 # --------------------- Background Scheduler for Data Update ------------------
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from pytz import timezone
+from apscheduler.schedulers.background import (  # noqa: E402
+    BackgroundScheduler,
+)
+from apscheduler.triggers.interval import IntervalTrigger  # noqa: E402, F401
+from pytz import timezone  # noqa: E402
 
-scheduler = BackgroundScheduler(timezone=timezone('Asia/Taipei'))
+scheduler = BackgroundScheduler(timezone=timezone("Asia/Taipei"))
 
 # # 設置不同的任務和執行間隔，定期重讀定義表
 # scheduler.add_job(
@@ -125,15 +135,13 @@ scheduler = BackgroundScheduler(timezone=timezone('Asia/Taipei'))
 # )
 scheduler.start()
 
+from fastapi import HTTPException  # noqa: E402
 
 # --------------------- exception handlers ------------------------------------
-from api_structure.core import exception_handlers as exc_handler
-from fastapi import HTTPException
+from api_structure.core import exception_handlers as exc_handler  # noqa: E402
 
-app.add_exception_handler(
-    HTTPException, exc_handler.custom_http_exception_handler)
-app.add_exception_handler(
-    Exception, exc_handler.global_exception_handler)
+app.add_exception_handler(HTTPException, exc_handler.custom_http_exception_handler)
+app.add_exception_handler(Exception, exc_handler.global_exception_handler)
 
 
 # --------------------- endpoints ---------------------------------------------
@@ -142,7 +150,10 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
-from api_structure.src.routers.tech_agent_router import router as tech_agent_router
+from api_structure.src.routers.tech_agent_router import (  # noqa: E402
+    router as tech_agent_router,
+)
+
 app.include_router(tech_agent_router)
 
 
@@ -150,11 +161,11 @@ app.include_router(tech_agent_router)
 @app.get("/")
 async def root():
     return {"message": "api is running"}
-    
+
+
 # --------------------- local test --------------------------------------------
 
 if __name__ == "__main__":
-    import uvicorn  
+    import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-
-
