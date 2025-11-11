@@ -3,6 +3,13 @@
 測試 /v1/tech_agent 端點是否能正常處理請求
 """
 
+import sys
+from pathlib import Path
+
+# Add api_structure to path
+api_structure_path = Path(__file__).parent.parent / "api_structure"
+sys.path.insert(0, str(api_structure_path))
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app

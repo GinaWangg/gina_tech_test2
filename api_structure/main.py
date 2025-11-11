@@ -131,16 +131,26 @@ app.add_exception_handler(
 
 # --------------------- endpoints ---------------------------------------------
 
+from fastapi import Request
 # from fastapi import Response
 # from pydantic import BaseModel
 
 # routers
+from api_structure.src.routers.tech_agent_router import tech_agent_endpoint
+from api_structure.src.schemas.tech_agent_schemas import TechAgentInput
 
 
 # root endpoint
 @app.get("/")
 async def root():
     return {"message": "api is running"}
+
+
+# tech agent endpoint
+@app.post("/v1/tech_agent")
+async def v1_tech_agent(user_input: TechAgentInput, request: Request):
+    """技術支援主流程 API"""
+    return await tech_agent_endpoint(user_input, request)
     
 # --------------------- local test --------------------------------------------
 
