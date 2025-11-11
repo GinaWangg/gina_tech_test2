@@ -7,6 +7,7 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+from api_structure.src.clients.mock_container_client import MockDependencyContainer
 # from src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
@@ -30,12 +31,18 @@ async def lifespan(app: FastAPI):
     # await cosmos_client.initialize()
     # app.state.cosmos_client = cosmos_client
 
+    # Initialize mock container for tech_agent endpoint
+    mock_container = MockDependencyContainer()
+    await mock_container.initialize()
+    app.state.mock_container = mock_container
+
     yield
     
     print("Application shutting down...")
     await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
+    await app.state.mock_container.close()
 
 
 #---------------------- FastAPI App & middleware ------------------------------
@@ -135,6 +142,8 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from api_structure.src.routers.tech_agent_router import router as tech_agent_router
+app.include_router(tech_agent_router)
 
 
 # root endpoint
