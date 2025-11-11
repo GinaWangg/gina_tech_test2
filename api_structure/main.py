@@ -29,6 +29,12 @@ async def lifespan(app: FastAPI):
     # cosmos_client = CosmosDbClient()
     # await cosmos_client.initialize()
     # app.state.cosmos_client = cosmos_client
+    
+    # Initialize tech agent container
+    from src.stubs.dependency_container_stub import DependencyContainerStub
+    tech_agent_container = DependencyContainerStub()
+    await tech_agent_container.init_async(aiohttp_client.session)
+    app.state.tech_agent_container = tech_agent_container
 
     yield
     
@@ -36,6 +42,7 @@ async def lifespan(app: FastAPI):
     await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
+    await app.state.tech_agent_container.close()
 
 
 #---------------------- FastAPI App & middleware ------------------------------
@@ -159,6 +166,22 @@ class TestGptClass(BaseModel):
 async def v1_test_gpt(input: TestGptClass, request: Request, response: Response):
     """Test GPT client endpoint - output_data is automatically captured by middleware."""
     result = await use_gpt_endpoint(request)
+    return result
+
+# Tech Agent endpoint
+from core.models import TechAgentInput
+from src.routers.tech_agent_router import TechAgentRouter
+
+@app.post("/v1/tech_agent")
+async def v1_tech_agent(
+    user_input: TechAgentInput, 
+    request: Request, 
+    response: Response
+):
+    """Tech Agent endpoint - provides technical support responses."""
+    container = request.app.state.tech_agent_container
+    router = TechAgentRouter(container=container)
+    result = await router.run(user_input)
     return result
 
 # root endpoint
