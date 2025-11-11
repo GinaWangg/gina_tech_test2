@@ -495,7 +495,7 @@ class TechAgentHandler:
             Final response dictionary
         """
         log_json = json.dumps(
-            self.user_input.dict(), ensure_ascii=False, indent=2
+            self.user_input.model_dump(), ensure_ascii=False, indent=2
         )
         print(f"\n[Agent 啟動] 輸入內容: {log_json}")
 

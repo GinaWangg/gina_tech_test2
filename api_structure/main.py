@@ -2,7 +2,7 @@
 import os
 import pickle
 import asyncio
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
@@ -75,10 +75,16 @@ async def load_pickle_data(app: FastAPI):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    
+    # Try to initialize GPT client (optional for testing)
+    try:
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+        print("[Startup] GPT client initialized")
+    except ValueError as e:
+        print(f"[Startup] GPT client not initialized: {e}")
+        app.state.gpt_client = None
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(
@@ -88,6 +94,7 @@ async def lifespan(app: FastAPI):
     )
     await aiohttp_client.initialize()
     app.state.aiohttp_client = aiohttp_client
+    print("[Startup] Aiohttp client initialized")
 
     # cosmos_client = CosmosDbClient()
     # await cosmos_client.initialize()
@@ -104,6 +111,7 @@ async def lifespan(app: FastAPI):
     app.state.cosmos_service = cosmos_service
     app.state.redis_service = redis_service
     app.state.service_discriminator = service_discriminator
+    print("[Startup] Mock services initialized")
 
     # Load pickle data
     await load_pickle_data(app)
@@ -111,7 +119,8 @@ async def lifespan(app: FastAPI):
     yield
 
     print("Application shutting down...")
-    await app.state.gpt_client.close()
+    if app.state.gpt_client:
+        await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
 
@@ -128,7 +137,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 

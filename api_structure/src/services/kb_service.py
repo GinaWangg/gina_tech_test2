@@ -3,7 +3,7 @@
 This module handles KB search, processing, and RAG response generation.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from api_structure.core.timer import timed
 
 
