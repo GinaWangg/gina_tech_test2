@@ -5,8 +5,8 @@ import core.config
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
-from api_structure.src.clients.gpt import GptClient
-from api_structure.src.clients.aiohttp_client import AiohttpClient
+from src.clients.gpt import GptClient
+from src.clients.aiohttp_client import AiohttpClient
 # from src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
@@ -120,7 +120,7 @@ scheduler.start()
 
 
 # --------------------- exception handlers ------------------------------------
-from api_structure.core import exception_handlers as exc_handler
+from core import exception_handlers as exc_handler
 from fastapi import HTTPException
 
 app.add_exception_handler(
@@ -135,6 +135,9 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from src.routers.tech_agent_router import router as tech_agent_router
+
+app.include_router(tech_agent_router)
 
 
 # root endpoint

@@ -1,6 +1,6 @@
 import functools
-from api_structure.core.exception_handlers import WarningException
-from api_structure.core.logger import get_log_context
+from .exception_handlers import WarningException
+from .logger import get_log_context
 import time
 from opentelemetry import trace
 tracer = trace.get_tracer(__name__)

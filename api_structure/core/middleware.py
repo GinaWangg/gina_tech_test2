@@ -3,9 +3,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import StreamingResponse
 import json
-from api_structure.core.logger import create_log_context, set_end_time
-from api_structure.src.db.write_cosmos import write_log_to_cosmos
-from api_structure.core.exception_handlers import AbortException
+from .logger import create_log_context, set_end_time
+from src.db.write_cosmos import write_log_to_cosmos
+from .exception_handlers import AbortException
 from traceback import format_exc
 
 # 改成你專案的名稱
@@ -13,6 +13,7 @@ PATH_TO_CONTAINER: dict[str, str] = {
     "/v1/test_gpt": "test_gpt",
     "/v1/test_api": "test_api",
     "/v1/test_aiohttp": "test_aiohttp",
+    "/v1/tech_agent": "tech_agent",
 }
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -40,7 +41,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             
-            # 因為 StreamingResponse 所以擷取output比較麻煩
+            # 擷取output - handle different response types
             response_body = b""
             if isinstance(response, StreamingResponse):
                 # 收集所有 chunks
@@ -67,6 +68,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     headers=response.headers,
                     media_type=response.media_type
                 )
+            else:
+                # Handle regular Response (including JSONResponse)
+                # Render the response body by iterating
+                chunks = []
+                async for chunk in response.body_iterator:
+                    if isinstance(chunk, bytes):
+                        chunks.append(chunk)
+                    else:
+                        chunks.append(str(chunk).encode('utf-8'))
+                response_body = b''.join(chunks)
             
             # 嘗試解析和 print 響應內容
             if response_body:
