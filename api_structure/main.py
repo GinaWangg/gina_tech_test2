@@ -7,9 +7,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+# 設定模式：True = 使用 MockContainer，False = 使用真實 DependencyContainer
+USE_MOCK_CONTAINER = True
 
-# 由於權限問題，目前不需要初始化完整的 DependencyContainer
-# 僅創建一個簡單的 mock container 用於結構展示
+
+# Mock container for testing without dependencies
 class MockContainer:
     """Mock container for structure demonstration."""
 
@@ -23,23 +25,104 @@ async def lifespan(app: FastAPI):
     """
     應用程式生命週期管理。
 
-    由於 API 和 Cosmos DB 的權限問題，目前使用簡化版本。
-    實際部署時應使用完整的 DependencyContainer 初始化。
-
-    完整初始化應包括：
-    - DependencyContainer 初始化
-    - aiohttp session 配置
-    - RAG mappings 載入
-    - KB mappings 載入
-    - 其他服務初始化
+    根據 USE_MOCK_CONTAINER 標誌選擇使用 mock 或真實初始化。
     """
     print("Application starting up...")
 
-    # 創建 mock container（實際應使用 DependencyContainer）
-    containers = MockContainer()
-    app.state.container = containers
+    if USE_MOCK_CONTAINER:
+        # 使用 MockContainer（不需要環境變數）
+        containers = MockContainer()
+        app.state.container = containers
+        yield
+    else:
+        # 使用真實的 DependencyContainer（需要環境變數和權限）
+        import pickle
+        import asyncio
+        import aiohttp
+        from src.integrations.containers import DependencyContainer
+        from src.services.update_service import UpdateService
+        from utils.logger import logger
 
-    yield
+        # 創建 aiohttp session
+        connector = aiohttp.TCPConnector(
+            limit=100,
+            limit_per_host=30,
+            ttl_dns_cache=300,
+            enable_cleanup_closed=True,
+            force_close=False,
+            keepalive_timeout=30,
+        )
+
+        timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
+
+        aiohttp_session = aiohttp.ClientSession(
+            connector=connector, timeout=timeout, trust_env=True
+        )
+
+        # 初始化 DependencyContainer
+        containers = DependencyContainer()
+        await containers.init_async(aiohttp_session=aiohttp_session)
+        app.state.container = containers
+
+        update_service = UpdateService(containers)
+
+        # 載入 mappings
+        async def load_rag_mappings():
+            try:
+                loop = asyncio.get_event_loop()
+
+                def load_files():
+                    with open(
+                        "config/rag_hint_id_index_mapping.pkl", "rb"
+                    ) as f1, open("config/rag_mappings.pkl", "rb") as f2:
+                        return pickle.load(f1), pickle.load(f2)
+
+                mapping1, mapping2 = await loop.run_in_executor(
+                    None, load_files
+                )
+                containers.rag_hint_id_index_mapping = mapping1
+                containers.rag_mappings = mapping2
+            except Exception as e:
+                logger.warning(
+                    f"[Memory Load Error] {e}, updating from database..."
+                )
+                await update_service.update_technical_rag()
+
+        async def load_kb_mappings():
+            try:
+                loop = asyncio.get_event_loop()
+
+                def load_file():
+                    with open("config/kb_mappings.pkl", "rb") as f:
+                        return pickle.load(f)
+
+                containers.KB_mappings = await loop.run_in_executor(
+                    None, load_file
+                )
+            except Exception as e:
+                logger.warning(
+                    f"[Load KB Mapping Error] {e}, updating from database..."
+                )
+                await update_service.update_KB()
+
+        try:
+            results = await asyncio.gather(
+                load_rag_mappings(),
+                load_kb_mappings(),
+                asyncio.to_thread(update_service.update_website_botname),
+                asyncio.to_thread(update_service.update_specific_KB),
+                return_exceptions=True,
+            )
+
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"初始化任務 {i} 失敗: {result}")
+
+            yield
+
+        finally:
+            await aiohttp_session.close()
+            await asyncio.sleep(0.25)
 
     print("Application shutting down...")
 

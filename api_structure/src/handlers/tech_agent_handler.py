@@ -9,6 +9,9 @@ from api_structure.core.logger import set_extract_log
 from api_structure.core.timer import timed
 from api_structure.src.models.tech_agent_models import TechAgentRequest
 
+# 設定模式：True = 使用模擬回應，False = 使用真實 API
+USE_MOCK_RESPONSES = True
+
 
 class TechAgentHandler:
     """Handler class for tech agent processing."""
@@ -27,9 +30,9 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_handler_process")
     async def process(self, request: TechAgentRequest) -> Dict[str, Any]:
         """
-        Process tech agent request with mocked responses.
+        Process tech agent request.
 
-        Due to permission issues, API and Cosmos DB calls are mocked.
+        Supports both mock and real implementations based on USE_MOCK_RESPONSES flag.
         The structure follows the original TechAgentProcessor flow:
         1. Initialize chat and retrieve history
         2. Process user info and bot scope detection
@@ -52,28 +55,23 @@ class TechAgentHandler:
             }
         )
 
+        if USE_MOCK_RESPONSES:
+            return await self._process_with_mock(request)
+        else:
+            return await self._process_with_real_api(request)
+
+    async def _process_with_mock(
+        self, request: TechAgentRequest
+    ) -> Dict[str, Any]:
+        """Process with mocked responses."""
         # ===== 步驟 1: 初始化 chat（模擬）=====
-        # 實際應執行：
-        # - cosmos_settings.create_GPT_messages()
-        # - cosmos_settings.get_latest_hint()
-        # - cosmos_settings.get_language_by_websitecode_dev()
-        # 模擬返回固定值
         lang = "zh-tw"
         his_inputs = [request.user_input]
 
         # ===== 步驟 2: 處理歷史對話（模擬）=====
-        # 實際應執行：
-        # - sentence_group_classification.sentence_group_classification()
-        # - chat_flow.is_follow_up()
-        # 模擬返回固定值
         is_follow_up = False
 
         # ===== 步驟 3: 取得用戶資訊和範圍（模擬）=====
-        # 實際應執行：
-        # - chat_flow.get_userInfo()
-        # - chat_flow.get_searchInfo()
-        # - chat_flow.get_bot_scope_chat()
-        # 模擬返回固定值
         user_info_dict = {
             "main_product_category": "notebook",
             "sub_product_category": None,
@@ -85,9 +83,6 @@ class TechAgentHandler:
         bot_scope = "notebook"
 
         # ===== 步驟 4: 搜尋知識庫（模擬）=====
-        # 實際應執行：
-        # - service_discriminator.service_discreminator_with_productline()
-        # 模擬返回固定的 FAQ 搜尋結果
         faq_result = {
             "faq": [1051479, 1038855, 1046480, 1042613],
             "cosineSimilarity": [
@@ -105,7 +100,6 @@ class TechAgentHandler:
         }
         faq_result_wo_pl = faq_result.copy()
 
-        # 取得最高相似度的 KB
         top1_kb = faq_result["faq"][0] if faq_result["faq"] else None
         top1_kb_sim = (
             faq_result["cosineSimilarity"][0]
@@ -114,22 +108,194 @@ class TechAgentHandler:
         )
 
         # ===== 步驟 5: 生成回應（模擬）=====
-        # 根據相似度決定回應類型
-        # TOP1_KB_SIMILARITY_THRESHOLD = 0.87
         if top1_kb_sim < 0.87:
-            # 相似度低，轉人工（avatarText + avatarAsk）
-            # 實際應執行：
-            # - ts_rag.reply_with_faq_gemini_sys_avatar()
             final_result, extract = self._create_low_similarity_response()
         else:
-            # 相似度高，返回技術支援
             final_result, extract = self._create_high_similarity_response()
 
         # ===== 步驟 6: 建立完整的 cosmos_data（模擬）=====
+        return self._build_cosmos_data(
+            request,
+            user_info_dict,
+            bot_scope,
+            search_info,
+            is_follow_up,
+            faq_result,
+            faq_result_wo_pl,
+            lang,
+            top1_kb,
+            final_result,
+            extract,
+        )
+
+    async def _process_with_real_api(
+        self, request: TechAgentRequest
+    ) -> Dict[str, Any]:
+        """Process with real API calls."""
+        from src.core.chat_flow import ChatFlow
+        from src.services.service_discriminator_merge_input import (
+            ServiceDiscriminator,
+        )
+        from src.services.service_process import ServiceProcess
+
+        # ===== 步驟 1: 初始化 chat =====
+        await self.containers.cosmos_settings.create_GPT_messages(
+            session_id=request.session_id,
+            chat_id=request.chat_id,
+            cus_id=request.cus_id,
+        )
+
+        latest_hint = await self.containers.cosmos_settings.get_latest_hint(
+            request.session_id
+        )
+
+        lang = self.containers.cosmos_settings.get_language_by_websitecode_dev(
+            request.websitecode
+        )
+
+        # ===== 步驟 2: 處理歷史對話 =====
+        chat_flow = ChatFlow(
+            self.containers, request.session_id, request.websitecode
+        )
+
+        his_inputs = await self.containers.sentence_group_classification.sentence_group_classification(
+            request.user_input, lang
+        )
+
+        is_follow_up_result = await chat_flow.is_follow_up(
+            his_inputs[-1] if his_inputs else request.user_input, lang
+        )
+        is_follow_up = is_follow_up_result.get("is_follow_up", False)
+
+        # ===== 步驟 3: 取得用戶資訊和範圍 =====
+        user_info = await chat_flow.get_userInfo(
+            his_inputs[-1] if his_inputs else request.user_input, lang
+        )
+        user_info_dict = {
+            "main_product_category": user_info.get("main_product_category"),
+            "sub_product_category": user_info.get("sub_product_category"),
+        }
+
+        search_info = await chat_flow.get_searchInfo(
+            his_inputs[-1] if his_inputs else request.user_input,
+            lang,
+            "zh-tw",
+        )
+
+        bot_scope = await chat_flow.get_bot_scope_chat(
+            user_info_dict.get("main_product_category", ""),
+            request.product_line,
+        )
+
+        # ===== 步驟 4: 搜尋知識庫 =====
+        service_discriminator = ServiceDiscriminator(self.containers)
+
+        if request.product_line:
+            faq_result = await service_discriminator.service_discreminator_with_productline(
+                user_question_english=search_info,
+                site=request.websitecode,
+                specific_kb_mappings=self.containers.specific_kb_mappings,
+                productLine=request.product_line,
+            )
+        else:
+            faq_result = await service_discriminator.service_discreminator_without_productline(
+                user_question_english=search_info,
+                site=request.websitecode,
+                specific_kb_mappings=self.containers.specific_kb_mappings,
+            )
+
+        faq_result_wo_pl = await service_discriminator.service_discreminator_without_productline(
+            user_question_english=search_info,
+            site=request.websitecode,
+            specific_kb_mappings=self.containers.specific_kb_mappings,
+        )
+
+        top1_kb = faq_result.get("faq", [None])[0]
+        top1_kb_sim = faq_result.get("cosineSimilarity", [0.0])[0]
+
+        # ===== 步驟 5: 生成回應 =====
+        service_process = ServiceProcess(self.containers)
+
+        if top1_kb_sim < 0.87:
+            # 低相似度：轉人工
+            avatar_response = (
+                await (
+                    service_process.ts_rag.reply_with_faq_gemini_sys_avatar(
+                        his_inputs[-1] if his_inputs else request.user_input,
+                        lang,
+                    )
+                )
+            )
+            final_result, extract = (
+                self._create_low_similarity_response_from_avatar(
+                    avatar_response
+                )
+            )
+        else:
+            # 高相似度：技術支援
+            rag_response = await service_process.technical_support_hint_create(
+                user_question=(
+                    his_inputs[-1] if his_inputs else request.user_input
+                ),
+                kb_no=str(top1_kb),
+                lang=lang,
+                site=request.websitecode,
+            )
+
+            avatar_response = (
+                await (
+                    service_process.ts_rag.reply_with_faq_gemini_sys_avatar(
+                        his_inputs[-1] if his_inputs else request.user_input,
+                        lang,
+                    )
+                )
+            )
+
+            final_result, extract = (
+                self._create_high_similarity_response_from_rag(
+                    rag_response, avatar_response, top1_kb, top1_kb_sim
+                )
+            )
+
+        # ===== 步驟 6: 建立完整的 cosmos_data =====
+        cosmos_data = self._build_cosmos_data(
+            request,
+            user_info_dict,
+            bot_scope,
+            search_info,
+            is_follow_up,
+            faq_result,
+            faq_result_wo_pl,
+            lang,
+            top1_kb,
+            final_result,
+            extract,
+        )
+
+        # 寫入 Cosmos DB
+        await self.containers.cosmos_settings.insert_data(cosmos_data)
+
+        return cosmos_data
+
+    def _build_cosmos_data(
+        self,
+        request,
+        user_info_dict,
+        bot_scope,
+        search_info,
+        is_follow_up,
+        faq_result,
+        faq_result_wo_pl,
+        lang,
+        top1_kb,
+        final_result,
+        extract,
+    ) -> Dict[str, Any]:
+        """Build the complete cosmos_data structure."""
         end_time = time.perf_counter()
         exec_time = round(end_time - self.start_time, 2)
 
-        cosmos_data = {
+        return {
             "id": (f"{request.cus_id}-{request.session_id}-{request.chat_id}"),
             "cus_id": request.cus_id,
             "session_id": request.session_id,
@@ -158,21 +324,8 @@ class TechAgentHandler:
             "total_time": exec_time,
         }
 
-        # 實際應執行：cosmos_settings.insert_data(cosmos_data)
-        # 因權限問題，目前僅返回固定格式
-
-        return cosmos_data
-
     def _create_low_similarity_response(self) -> tuple[Dict, Dict]:
-        """
-        Create response for low similarity case (handoff to human).
-
-        模擬低相似度的回應，包含 avatarText 和 avatarAsk。
-        實際應執行：ts_rag.reply_with_faq_gemini_sys_avatar()
-
-        Returns:
-            Tuple of (final_result, extract)
-        """
+        """Create mock response for low similarity case."""
         final_result = {
             "status": 200,
             "message": "OK",
@@ -259,18 +412,105 @@ class TechAgentHandler:
 
         return final_result, extract
 
+    def _create_low_similarity_response_from_avatar(
+        self, avatar_response
+    ) -> tuple[Dict, Dict]:
+        """Create response for low similarity case from real avatar response."""
+        # Extract avatar message from response
+        avatar_message = (
+            avatar_response.get("response", {}).get("answer", "")
+            if isinstance(avatar_response.get("response"), dict)
+            else str(avatar_response.get("response", ""))
+        )
+
+        final_result = {
+            "status": 200,
+            "message": "OK",
+            "result": [
+                {
+                    "renderId": self.render_id,
+                    "stream": False,
+                    "type": "avatarText",
+                    "message": avatar_message,
+                    "remark": [],
+                    "option": [],
+                },
+                {
+                    "renderId": self.render_id,
+                    "stream": False,
+                    "type": "avatarAsk",
+                    "message": (
+                        "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
+                        "比如「ROG Flow X16」或「我想查產品保固到期日」。"
+                        "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！"
+                    ),
+                    "remark": [],
+                    "option": [
+                        {
+                            "name": "我想知道 ROG FLOW X16 的規格",
+                            "value": "我想知道 ROG FLOW X16 的規格",
+                            "answer": [
+                                {"type": "inquireMode", "value": "intent"},
+                                {
+                                    "type": "inquireKey",
+                                    "value": "specification-consultation",
+                                },
+                                {"type": "mainProduct", "value": 25323},
+                            ],
+                        },
+                        {
+                            "name": "請幫我推薦16吋筆電",
+                            "value": "請幫我推薦16吋筆電",
+                            "answer": [
+                                {"type": "inquireMode", "value": "intent"},
+                                {
+                                    "type": "inquireKey",
+                                    "value": (
+                                        "purchasing-recommendation-"
+                                        "of-asus-products"
+                                    ),
+                                },
+                            ],
+                        },
+                        {
+                            "name": "請幫我介紹 ROG Phone 8 的特色",
+                            "value": "請幫我介紹 ROG Phone 8 的特色",
+                            "answer": [
+                                {"type": "inquireMode", "value": "intent"},
+                                {
+                                    "type": "inquireKey",
+                                    "value": "specification-consultation",
+                                },
+                                {"type": "mainProduct", "value": 25323},
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        extract = {
+            "status": 200,
+            "type": "handoff",
+            "message": "相似度低，建議轉人工",
+            "output": {
+                "answer": "",
+                "ask_flag": False,
+                "hint_candidates": [],
+                "kb": {
+                    "kb_no": "1051479",
+                    "title": "",
+                    "similarity": 0.816743731499,
+                    "source": "",
+                    "exec_time": 0.0,
+                },
+            },
+        }
+
+        return final_result, extract
+
     def _create_high_similarity_response(self) -> tuple[Dict, Dict]:
-        """
-        Create response for high similarity case (technical support).
-
-        模擬高相似度的回應，包含技術支援和 FAQ 卡片。
-        實際應執行：
-        - technical_support_hint_create()
-        - reply_with_faq_gemini_sys_avatar()
-
-        Returns:
-            Tuple of (final_result, extract)
-        """
+        """Create mock response for high similarity case."""
         final_result = {
             "status": 200,
             "message": "OK",
@@ -322,6 +562,66 @@ class TechAgentHandler:
                     "similarity": 0.92,
                     "source": "knowledge_base",
                     "exec_time": 0.5,
+                },
+            },
+        }
+
+        return final_result, extract
+
+    def _create_high_similarity_response_from_rag(
+        self, rag_response, avatar_response, top1_kb, top1_kb_sim
+    ) -> tuple[Dict, Dict]:
+        """Create response for high similarity case from real RAG response."""
+        # Extract content from RAG and avatar responses
+        rag_answer = rag_response.get("answer", "")
+        avatar_message = (
+            avatar_response.get("response", {}).get("answer", "")
+            if isinstance(avatar_response.get("response"), dict)
+            else str(avatar_response.get("response", ""))
+        )
+
+        kb_info = rag_response.get("kb", {})
+
+        final_result = {
+            "status": 200,
+            "message": "OK",
+            "result": [
+                {
+                    "renderId": self.render_id,
+                    "stream": False,
+                    "type": "avatarTechnicalSupport",
+                    "message": avatar_message or rag_answer,
+                    "remark": [],
+                    "option": [
+                        {
+                            "type": "faqcards",
+                            "cards": [
+                                {
+                                    "link": kb_info.get("link", ""),
+                                    "title": kb_info.get("title", ""),
+                                    "content": kb_info.get("content", ""),
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        extract = {
+            "status": 200,
+            "type": "answer",
+            "message": "RAG Response",
+            "output": {
+                "answer": rag_answer,
+                "ask_flag": False,
+                "hint_candidates": rag_response.get("hint_candidates", []),
+                "kb": {
+                    "kb_no": str(top1_kb) if top1_kb else "",
+                    "title": kb_info.get("title", ""),
+                    "similarity": float(top1_kb_sim),
+                    "source": "knowledge_base",
+                    "exec_time": kb_info.get("exec_time", 0.0),
                 },
             },
         }
