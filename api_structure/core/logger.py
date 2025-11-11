@@ -2,6 +2,10 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 import contextvars
 import time
+import logging
+
+# Setup logger instance
+logger = logging.getLogger(__name__)
 
 
 _log_ctx_var: contextvars.ContextVar = contextvars.ContextVar(
