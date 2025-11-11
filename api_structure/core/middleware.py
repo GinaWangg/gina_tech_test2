@@ -41,10 +41,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             
-            # 擷取 response body
+            # Read response body from any type of response
             response_body = b""
-            if isinstance(response, StreamingResponse):
-                # 收集所有 chunks from streaming response
+            if hasattr(response, 'body_iterator'):
+                # All responses from call_next have body_iterator
                 chunks = []
                 async for chunk in response.body_iterator:
                     if isinstance(chunk, bytes):
@@ -58,23 +58,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 
                 response_body = b''.join(chunks)
                 
-                # 重建 StreamingResponse
-                async def generate():
+                # Recreate body_iterator so response can be sent
+                async def regenerate():
                     yield response_body
-                
-                response = StreamingResponse(
-                    generate(),
-                    status_code=response.status_code,
-                    headers=response.headers,
-                    media_type=response.media_type
-                )
-            else:
-                # For regular responses (JSONResponse, etc.), read the body
-                # Get response body by accessing body attribute if available
-                if hasattr(response, 'body'):
-                    response_body = response.body
+                response.body_iterator = regenerate()
             
-            # 嘗試解析和 print 響應內容
+            # Parse response body
             if response_body:
                 try:
                     log_ctx.output_data = json.loads(
