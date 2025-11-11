@@ -1,62 +1,139 @@
 # 統一載入設定檔
 import os
+import pickle
+import asyncio
 import api_structure.core.config
 
-#---------------------- Lifespan Configuration --------------------------------
+# ---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+from src.integrations.containers import DependencyContainer
+from src.services.update_service import UpdateService
+from utils.logger import logger
+import aiohttp
+
 # from src.db.cosmos_client import CosmosDbClient
+
+
+# ========================
+# ✅ 輔助函式
+# ========================
+async def load_rag_mappings(containers, update_service):
+    """非阻塞載入 RAG mappings"""
+    try:
+        loop = asyncio.get_event_loop()
+
+        def load_files():
+            with open(
+                "config/rag_hint_id_index_mapping.pkl", "rb"
+            ) as f1, open("config/rag_mappings.pkl", "rb") as f2:
+                return pickle.load(f1), pickle.load(f2)
+
+        # 在線程池中執行，不阻塞事件循環
+        mapping1, mapping2 = await loop.run_in_executor(None, load_files)
+
+        containers.rag_hint_id_index_mapping = mapping1
+        containers.rag_mappings = mapping2
+
+    except Exception as e:
+        logger.warning(f"[Memory Load Error] {e}, updating from database...")
+        await update_service.update_technical_rag()
+
+
+async def load_kb_mappings(containers, update_service):
+    """非阻塞載入 KB mappings"""
+    try:
+        loop = asyncio.get_event_loop()
+
+        def load_file():
+            with open("config/kb_mappings.pkl", "rb") as f:
+                return pickle.load(f)
+
+        containers.KB_mappings = await loop.run_in_executor(None, load_file)
+
+    except Exception as e:
+        logger.warning(
+            f"[Load KB Mapping Error] {e}, updating from database..."
+        )
+        await update_service.update_KB()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """應用程式生命週期管理 - 與原始 main.py 相同"""
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
 
-    # aiohttp client with connection pooling
-    aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
+    # 創建 aiohttp session（與原始 main.py 相同的配置）
+    connector = aiohttp.TCPConnector(
+        limit=100,  # 總連線數上限
+        limit_per_host=30,  # 每個 host 的連線數上限
+        ttl_dns_cache=300,  # DNS 快取 5 分鐘
+        enable_cleanup_closed=True,  # 啟用關閉連線清理
+        force_close=False,  # 保持連線重用
+        keepalive_timeout=30,  # Keep-alive 超時 30 秒
     )
-    await aiohttp_client.initialize()
-    app.state.aiohttp_client = aiohttp_client
 
-    # cosmos_client = CosmosDbClient()
-    # await cosmos_client.initialize()
-    # app.state.cosmos_client = cosmos_client
+    timeout = aiohttp.ClientTimeout(
+        total=60,  # 總超時 60 秒
+        connect=10,  # 連線超時 10 秒
+        sock_read=30,  # 讀取超時 30 秒
+    )
 
-    yield
-    
-    print("Application shutting down...")
-    await app.state.gpt_client.close()
-    await app.state.aiohttp_client.close()
-    # await app.state.cosmos_client.close()
+    aiohttp_session = aiohttp.ClientSession(
+        connector=connector, timeout=timeout, trust_env=True  # 支援代理設定
+    )
+
+    # 初始化 DependencyContainer（與原始 main.py 相同）
+    containers = DependencyContainer()
+    await containers.init_async(aiohttp_session=aiohttp_session)
+    app.state.container = containers
+
+    update_service = UpdateService(containers)
+
+    try:
+        results = await asyncio.gather(
+            load_rag_mappings(containers, update_service),
+            load_kb_mappings(containers, update_service),
+            asyncio.to_thread(update_service.update_website_botname),
+            asyncio.to_thread(update_service.update_specific_KB),
+            return_exceptions=True,  # 即使某個任務失敗，其他任務也繼續
+        )
+
+        # 檢查是否有錯誤
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"初始化任務 {i} 失敗: {result}")
+
+        yield
+
+    finally:
+        await aiohttp_session.close()
+        await asyncio.sleep(0.25)
+        print("Application shutting down...")
 
 
-#---------------------- FastAPI App & middleware ------------------------------
+# ---------------------- FastAPI App & middleware ------------------------------
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=['Content-Type'],
-    max_age=3600
+    allow_headers=["Content-Type"],
+    max_age=3600,
 )
 
 from api_structure.core.middleware import RequestLoggingMiddleware
+
 app.add_middleware(RequestLoggingMiddleware)
 
 
 # --------------------- application insights ----------------------------------
 if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
-    ''' 地端上使用 可以用這段 '''
+    """地端上使用 可以用這段"""
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -68,7 +145,7 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
             provider = TracerProvider()
             trace.set_tracer_provider(provider)
             # terminal輸出
-            span_processor = BatchSpanProcessor(ConsoleSpanExporter()) 
+            span_processor = BatchSpanProcessor(ConsoleSpanExporter())
             provider.add_span_processor(span_processor)
             return provider
         else:
@@ -78,24 +155,25 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
     # tracer_provider = setup_tracing()
 
 else:
-    ''' azure上使用 可以用這段 '''
+    """azure上使用 可以用這段"""
     from azure.monitor.opentelemetry import configure_azure_monitor
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
     # Application Insights 的 Connection String
-    CONNECTION_STRING = os.getenv('MYAPP_CONNECTION_STRING')
+    CONNECTION_STRING = os.getenv("MYAPP_CONNECTION_STRING")
     if not CONNECTION_STRING:
         raise ValueError(
-            "Environment variable 'MYAPP_CONNECTION_STRING' is not set.")
+            "Environment variable 'MYAPP_CONNECTION_STRING' is not set."
+        )
 
     # 配置 Azure Monitor OpenTelemetry
     configure_azure_monitor(
-        connection_string=CONNECTION_STRING, 
-        enable_live_metrics=True
+        connection_string=CONNECTION_STRING, enable_live_metrics=True
     )
 
-''' 不管地端還是 azure 都要這段 '''
+""" 不管地端還是 azure 都要這段 """
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
 FastAPIInstrumentor.instrument_app(app)
 
 
@@ -104,7 +182,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from pytz import timezone
 
-scheduler = BackgroundScheduler(timezone=timezone('Asia/Taipei'))
+scheduler = BackgroundScheduler(timezone=timezone("Asia/Taipei"))
 
 # # 設置不同的任務和執行間隔，定期重讀定義表
 # scheduler.add_job(
@@ -124,9 +202,9 @@ from api_structure.core import exception_handlers as exc_handler
 from fastapi import HTTPException
 
 app.add_exception_handler(
-    HTTPException, exc_handler.custom_http_exception_handler)
-app.add_exception_handler(
-    Exception, exc_handler.global_exception_handler)
+    HTTPException, exc_handler.custom_http_exception_handler
+)
+app.add_exception_handler(Exception, exc_handler.global_exception_handler)
 
 
 # --------------------- endpoints ---------------------------------------------
@@ -135,7 +213,9 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
-from api_structure.src.routers.tech_agent_router import router as tech_agent_router
+from api_structure.src.routers.tech_agent_router import (
+    router as tech_agent_router,
+)
 
 app.include_router(tech_agent_router)
 
@@ -144,11 +224,11 @@ app.include_router(tech_agent_router)
 @app.get("/")
 async def root():
     return {"message": "api is running"}
-    
+
+
 # --------------------- local test --------------------------------------------
 
 if __name__ == "__main__":
-    import uvicorn  
+    import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-
-

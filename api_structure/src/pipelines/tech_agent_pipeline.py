@@ -10,34 +10,31 @@ from api_structure.src.models.tech_agent_models import TechAgentRequest
 class TechAgentPipeline:
     """Pipeline for orchestrating tech agent request processing."""
 
-    def __init__(self):
-        """Initialize the tech agent pipeline."""
-        self.handler = TechAgentHandler()
+    def __init__(self, containers):
+        """
+        Initialize the tech agent pipeline.
+
+        Args:
+            containers: DependencyContainer with all required services
+        """
+        self.handler = TechAgentHandler(containers)
 
     @timed(task_name="tech_agent_pipeline_execute")
     async def execute(self, request: TechAgentRequest) -> Dict[str, Any]:
         """
         Execute the tech agent processing pipeline.
 
-        This method orchestrates the complete tech agent workflow:
-        1. Validate input
-        2. Process through handler
-        3. Format response
+        This method orchestrates the complete tech agent workflow
+        using the original processing logic.
 
         Args:
             request: Tech agent request data
 
         Returns:
-            Formatted response dictionary
+            Complete response including final_result and cosmos_data
         """
-        # 執行處理邏輯
+        # 執行處理邏輯（使用原始的 TechAgentProcessor）
         result = await self.handler.process(request)
 
-        # 格式化回應
-        response = {
-            "status": 200,
-            "message": "OK",
-            "result": [item.model_dump() for item in result["render_items"]],
-        }
-
-        return response
+        # 返回包含 final_result 的完整回應
+        return result["cosmos_data"]
