@@ -6,8 +6,10 @@ using the initialized client from app.state.
 """
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from fastapi import Request
+
 # from src.db.cosmos_client import CosmosDbClient
 
 

@@ -1,8 +1,8 @@
 """Pydantic models for tech agent API."""
 
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from datetime import datetime
 
 
 class TechAgentInput(BaseModel):
@@ -13,9 +13,7 @@ class TechAgentInput(BaseModel):
     chat_id: str = Field(..., description="Chat ID")
     user_input: str = Field(..., description="User question or input")
     websitecode: str = Field(..., description="Website code (e.g., 'tw', 'us')")
-    product_line: str = Field(
-        "", description="Product line (empty if not specified)"
-    )
+    product_line: str = Field("", description="Product line (empty if not specified)")
     system_code: str = Field(..., description="System code (e.g., 'rog', 'asus')")
 
 

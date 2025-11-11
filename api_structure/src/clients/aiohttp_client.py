@@ -4,8 +4,9 @@ This module provides a reusable aiohttp ClientSession with connection pooling
 that can be initialized at application startup and shared across requests.
 """
 
-import aiohttp
 from typing import Optional
+
+import aiohttp
 from aiohttp import ClientTimeout
 
 

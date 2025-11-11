@@ -1,8 +1,11 @@
-from src.clients.aiohttp_client import AiohttpClient
-from core.timer import timed
-from typing import Optional
 import os
+from typing import Optional
+
+from src.clients.aiohttp_client import AiohttpClient
+
 from api_structure.core.exception_handlers import AbortException
+from core.timer import timed
+
 
 class CallRedisApiExamples:
     """Handler class for calling Redis API examples."""
