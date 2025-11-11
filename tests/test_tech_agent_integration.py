@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -19,7 +20,7 @@ from src.handlers.tech_agent_handler import TechAgentHandler
 from src.stubs.dependency_container_stub import DependencyContainerStub
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def container():
     """Create a dependency container for testing.
     

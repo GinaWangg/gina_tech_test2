@@ -278,7 +278,6 @@ class TechAgentHandler:
         self.faq_result = response[0]
         self.faq_result_wo_pl = response[1]
 
-    @timed(task_name="tech_agent_process_kb_results")
     def _process_kb_results(self) -> None:
         """Process and filter knowledge base search results.
         
