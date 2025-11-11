@@ -3,10 +3,10 @@
 '''
 
 import os
-from typing import Optional, Dict, Any, List
-from azure.cosmos.aio import CosmosClient
+from typing import Any, Dict, List, Optional
+
 from azure.cosmos import exceptions
-from azure.cosmos.aio import ContainerProxy, DatabaseProxy
+from azure.cosmos.aio import ContainerProxy, CosmosClient, DatabaseProxy
 
 
 class CosmosDbClient:

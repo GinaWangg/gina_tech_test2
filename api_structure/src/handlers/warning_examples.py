@@ -1,7 +1,9 @@
-import random
 import asyncio
+import random
+
 from api_structure.core.exception_handlers import WarningException
 from api_structure.core.timer import timed
+
 
 @timed(task_name="example_warning")
 async def example_warning(text: str) -> str:

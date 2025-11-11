@@ -1,8 +1,9 @@
 import asyncio
-import os
 import json
+import os
 from textwrap import dedent
 from typing import Optional
+
 from openai import AsyncAzureOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
