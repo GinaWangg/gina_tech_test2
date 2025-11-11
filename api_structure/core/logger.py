@@ -83,3 +83,17 @@ def set_end_time() -> None:
     """
     ctx = get_log_context()
     ctx.end_time = round(time.time(), 4)
+
+
+def get_logger(name: str):
+    """
+    Get a logger instance for the specified module.
+    
+    Args:
+        name: Module name (usually __name__)
+        
+    Returns:
+        Logger instance
+    """
+    import logging
+    return logging.getLogger(name)
