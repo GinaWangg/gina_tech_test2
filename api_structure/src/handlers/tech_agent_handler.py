@@ -93,7 +93,9 @@ class TechAgentHandler:
         Returns:
             Final response dictionary
         """
-        log_json = json.dumps(user_input.dict(), ensure_ascii=False, indent=2)
+        log_json = json.dumps(
+            user_input.model_dump(), ensure_ascii=False, indent=2
+        )
         logger.info(f"\n[Agent 啟動] 輸入內容: {log_json}")
 
         await self._initialize_chat(user_input)
