@@ -135,7 +135,9 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from api_structure.src.routers.tech_agent_router import router as tech_agent_router
 
+app.include_router(tech_agent_router)
 
 # root endpoint
 @app.get("/")
