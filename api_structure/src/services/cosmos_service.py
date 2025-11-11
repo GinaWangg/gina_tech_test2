@@ -1,8 +1,6 @@
 """Cosmos database service (stubbed for testing)."""
 
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-import uuid
+from typing import Any, Dict, List, Optional
 
 
 class CosmosService:

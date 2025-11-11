@@ -3,15 +3,14 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 from api_structure.core.timer import timed
-from api_structure.core.logger import get_log_context
 from api_structure.src.models.tech_agent_models import TechAgentInput
 from api_structure.src.services.chat_flow_service import ChatFlowService
+from api_structure.src.services.cosmos_service import CosmosService
 from api_structure.src.services.kb_search_service import KBSearchService
 from api_structure.src.services.rag_service import RAGService
-from api_structure.src.services.cosmos_service import CosmosService
 
 
 class TechAgentHandler:
@@ -89,9 +88,7 @@ class TechAgentHandler:
         await self._get_user_and_scope_info(user_input)
 
         # Phase 4: Generate avatar response (async)
-        avatar_task = self.rag_service.reply_with_avatar(
-            self.his_inputs[-1], self.lang
-        )
+        avatar_task = self.rag_service.reply_with_avatar(self.his_inputs[-1], self.lang)
 
         # Phase 5: Search knowledge base
         await self._search_knowledge_base(user_input)
@@ -157,9 +154,7 @@ class TechAgentHandler:
         )
         self.is_follow_up = follow_up_result.get("is_follow_up", False)
 
-    async def _get_user_and_scope_info(
-        self, user_input: TechAgentInput
-    ) -> None:
+    async def _get_user_and_scope_info(self, user_input: TechAgentInput) -> None:
         """Get user information and determine bot scope.
 
         Args:
@@ -170,9 +165,7 @@ class TechAgentHandler:
             self.his_inputs
         )
 
-        self.search_info = await self.chat_flow_service.get_search_info(
-            self.his_inputs
-        )
+        self.search_info = await self.chat_flow_service.get_search_info(self.his_inputs)
 
         # Determine bot scope
         self.bot_scope_chat = await self.chat_flow_service.get_bot_scope(
@@ -246,14 +239,12 @@ class TechAgentHandler:
         self.avatar_response = await avatar_task
 
         # Generate product line re-ask
-        ask_response, rag_response = (
-            await self.rag_service.create_product_line_reask(
-                user_input=user_input.user_input,
-                faqs_wo_pl=self.faqs_wo_pl,
-                websitecode=user_input.websitecode,
-                lang=self.lang,
-                system_code=user_input.system_code,
-            )
+        ask_response, rag_response = await self.rag_service.create_product_line_reask(
+            user_input=user_input.user_input,
+            faqs_wo_pl=self.faqs_wo_pl,
+            websitecode=user_input.websitecode,
+            lang=self.lang,
+            system_code=user_input.system_code,
         )
 
         relative_questions = rag_response.get("relative_questions", [])
@@ -422,9 +413,12 @@ class TechAgentHandler:
                     "renderId": self.render_id,
                     "stream": False,
                     "type": "avatarAsk",
-                    "message": "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
-                    "比如「ROG Flow X16」或「我想查產品保固到期日」。"
-                    "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！",
+                    "message": (
+                        "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
+                        "比如「ROG Flow X16」或「我想查產品保固到期日」。"
+                        "給我多一點線索，我就能更快幫你找到對的資料，"
+                        "也不會漏掉重點！"
+                    ),
                     "remark": [],
                     "option": [
                         {

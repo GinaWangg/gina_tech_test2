@@ -1,6 +1,6 @@
 """Knowledge base search service."""
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class KBSearchService:
@@ -63,9 +63,7 @@ class KBSearchService:
 
         # Filter by threshold and take top 3
         top4_kb_list = [
-            faq
-            for faq, sim in zip(faq_list, sim_list)
-            if sim >= self.kb_threshold
+            faq for faq, sim in zip(faq_list, sim_list) if sim >= self.kb_threshold
         ][:3]
 
         top1_kb = faq_list[0] if faq_list else ""

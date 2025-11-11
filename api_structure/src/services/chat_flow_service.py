@@ -1,7 +1,7 @@
 """Chat flow service for handling user info and bot scope logic."""
 
 import json
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 class ChatFlowService:
@@ -21,9 +21,7 @@ class ChatFlowService:
             "first_time": True,
         }
 
-    async def get_user_info(
-        self, his_inputs: List[str]
-    ) -> tuple[Dict[str, Any], str]:
+    async def get_user_info(self, his_inputs: List[str]) -> tuple[Dict[str, Any], str]:
         """Extract user information from chat history.
 
         Args:

@@ -1,21 +1,21 @@
 # 統一載入設定檔
 import os
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
-# from src.db.cosmos_client import CosmosDbClient
+# from api_structure.src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    # connection pooling (GPT client disabled for testing)
+    # gpt_client = GptClient()
+    # await gpt_client.initialize()
+    # app.state.gpt_client = gpt_client
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     yield
     
     print("Application shutting down...")
-    await app.state.gpt_client.close()
+    # await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
 
@@ -50,7 +50,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
