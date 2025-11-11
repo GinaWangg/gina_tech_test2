@@ -4,10 +4,7 @@ This module provides stub versions of ServiceProcess, ChatFlow,
 and related service classes.
 """
 
-import asyncio
-import json
 from typing import Any, Dict, List, Optional
-from datetime import datetime
 
 
 class ChatFlowStub:
@@ -15,7 +12,7 @@ class ChatFlowStub:
 
     def __init__(self, data: Any, last_hint: Optional[Dict], container: Any):
         """Initialize ChatFlow stub.
-        
+
         Args:
             data: Request data
             last_hint: Last hint data
@@ -39,18 +36,16 @@ class ChatFlowStub:
         last_bot_scope: Optional[str],
     ) -> Optional[str]:
         """Simulate bot scope determination.
-        
+
         Args:
             prev_user_info: Previous user info
             curr_user_info: Current user info
             last_bot_scope: Last bot scope
-            
+
         Returns:
             Bot scope string or None
         """
-        if self.last_hint and self.last_hint.get("hintType") == (
-            "productline-reask"
-        ):
+        if self.last_hint and self.last_hint.get("hintType") == ("productline-reask"):
             for hint in self.last_hint.get("intentHints", []):
                 if self.data.user_input == hint.get("question"):
                     return hint.get("title")
@@ -60,14 +55,12 @@ class ChatFlowStub:
 
         return getattr(self.data, "product_line", None) or None
 
-    async def get_userInfo(
-        self, his_inputs: List[str]
-    ) -> tuple:
+    async def get_userInfo(self, his_inputs: List[str]) -> tuple:
         """Simulate user info extraction.
-        
+
         Args:
             his_inputs: Historical inputs
-            
+
         Returns:
             Tuple of (user_info_dict, other_data)
         """
@@ -81,10 +74,10 @@ class ChatFlowStub:
 
     async def get_searchInfo(self, his_inputs: List[str]) -> str:
         """Simulate search info generation.
-        
+
         Args:
             his_inputs: Historical inputs
-            
+
         Returns:
             Search query string
         """
@@ -98,13 +91,13 @@ class ChatFlowStub:
         new_question: str,
     ) -> Dict[str, bool]:
         """Simulate follow-up detection.
-        
+
         Args:
             prev_question: Previous question
             prev_answer: Previous answer
             prev_answer_refs: Previous answer references
             new_question: New question
-            
+
         Returns:
             Dictionary with is_follow_up flag
         """
@@ -126,7 +119,7 @@ class TSRAGStub:
         site: str,
     ) -> tuple:
         """Simulate RAG response generation.
-        
+
         Args:
             top1_kb: Top KB number
             top1_kb_sim: Similarity score
@@ -136,7 +129,7 @@ class TSRAGStub:
             user_question: User's question
             lang: Language code
             site: Site code
-            
+
         Returns:
             Tuple of (response_text, response_info)
         """
@@ -156,12 +149,12 @@ class TSRAGStub:
         content_data: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """Simulate avatar response generation.
-        
+
         Args:
             user_input: User input
             lang: Language code
             content_data: Optional content data
-            
+
         Returns:
             Dictionary with response
         """
@@ -182,7 +175,7 @@ class TSProductLineStub:
 
     def __init__(self, config: Any, productline_name_map: Dict):
         """Initialize product line stub.
-        
+
         Args:
             config: Configuration object
             productline_name_map: Product line name mappings
@@ -195,7 +188,7 @@ class ServiceProcessStub:
 
     def __init__(self, system_code: str, container: Any):
         """Initialize ServiceProcess stub.
-        
+
         Args:
             system_code: System code
             container: Dependency container
@@ -203,9 +196,7 @@ class ServiceProcessStub:
         self.system_code = system_code
         self.container = container
         self.ts_rag = TSRAGStub()
-        self.ts_pl = TSProductLineStub(
-            container.cfg, container.productline_name_map
-        )
+        self.ts_pl = TSProductLineStub(container.cfg, container.productline_name_map)
         self.redis_config = container.redis_config
 
     async def technical_support_hint_create(
@@ -221,7 +212,7 @@ class ServiceProcessStub:
         config: Any,
     ) -> Dict[str, Any]:
         """Simulate hint creation for technical support.
-        
+
         Args:
             kb_list: List of KB numbers
             top1_kb: Top KB number
@@ -232,7 +223,7 @@ class ServiceProcessStub:
             system_code: System code
             site: Site code
             config: Configuration
-            
+
         Returns:
             Dictionary with RAG response and hints
         """
@@ -296,14 +287,14 @@ class ServiceProcessStub:
         system_code: str,
     ) -> tuple:
         """Simulate product line re-ask.
-        
+
         Args:
             user_input: User input
             faqs_wo_pl: FAQs without product line
             site: Site code
             lang: Language code
             system_code: System code
-            
+
         Returns:
             Tuple of (ask_response, rag_response)
         """

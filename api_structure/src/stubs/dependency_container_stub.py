@@ -5,23 +5,19 @@ that simulates the behavior of external dependencies without requiring
 actual connections to Cosmos DB, Redis, or other services.
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import uuid4
 
 
 class CosmosConfigStub:
     """Stub for Cosmos DB configuration and operations."""
 
-    async def create_GPT_messages(
-        self, session_id: str, user_input: str
-    ) -> tuple:
+    async def create_GPT_messages(self, session_id: str, user_input: str) -> tuple:
         """Simulate retrieving chat history.
-        
+
         Args:
             session_id: Session identifier
             user_input: Current user input
-            
+
         Returns:
             Tuple of (messages, chat_count, user_info, last_bot_scope,
             last_extract_output)
@@ -31,28 +27,25 @@ class CosmosConfigStub:
         user_info = None
         last_bot_scope = None
         last_extract_output = {}
-        return (messages, chat_count, user_info, last_bot_scope,
-                last_extract_output)
+        return (messages, chat_count, user_info, last_bot_scope, last_extract_output)
 
     async def get_latest_hint(self, session_id: str) -> Optional[Dict]:
         """Simulate retrieving latest hint data.
-        
+
         Args:
             session_id: Session identifier
-            
+
         Returns:
             None for first-time users
         """
         return None
 
-    async def get_language_by_websitecode_dev(
-        self, websitecode: str
-    ) -> str:
+    async def get_language_by_websitecode_dev(self, websitecode: str) -> str:
         """Simulate language lookup by website code.
-        
+
         Args:
             websitecode: Website code
-            
+
         Returns:
             Language code
         """
@@ -67,7 +60,7 @@ class CosmosConfigStub:
         hint_type: str,
     ) -> None:
         """Simulate inserting hint data.
-        
+
         Args:
             chatflow_data: Chat flow data
             intent_hints: List of hint suggestions
@@ -78,7 +71,7 @@ class CosmosConfigStub:
 
     async def insert_data(self, cosmos_data: Dict[str, Any]) -> None:
         """Simulate inserting data to Cosmos DB.
-        
+
         Args:
             cosmos_data: Data to insert
         """
@@ -88,28 +81,24 @@ class CosmosConfigStub:
 class RedisConfigStub:
     """Stub for Redis configuration and operations."""
 
-    async def get_productline(
-        self, product_category: str, site: str
-    ) -> Optional[str]:
+    async def get_productline(self, product_category: str, site: str) -> Optional[str]:
         """Simulate product line lookup.
-        
+
         Args:
             product_category: Product category
             site: Site code
-            
+
         Returns:
             Product line or None
         """
         return product_category
 
-    async def get_hint_simiarity(
-        self, search_info: str
-    ) -> Dict[str, Any]:
+    async def get_hint_simiarity(self, search_info: str) -> Dict[str, Any]:
         """Simulate hint similarity search.
-        
+
         Args:
             search_info: Search query
-            
+
         Returns:
             Dictionary with faq and hints_id
         """
@@ -123,18 +112,14 @@ class SentenceGroupClassificationStub:
         self, his_inputs: List[str]
     ) -> Dict[str, Any]:
         """Simulate sentence grouping.
-        
+
         Args:
             his_inputs: List of historical inputs
-            
+
         Returns:
             Dictionary with groups
         """
-        return {
-            "groups": [
-                {"statements": his_inputs[-1:] if his_inputs else []}
-            ]
-        }
+        return {"groups": [{"statements": his_inputs[-1:] if his_inputs else []}]}
 
 
 class ServiceDiscriminatorStub:
@@ -148,13 +133,13 @@ class ServiceDiscriminatorStub:
         productLine: Optional[str],
     ) -> tuple:
         """Simulate FAQ search with product line.
-        
+
         Args:
             user_question_english: User question
             site: Site code
             specific_kb_mappings: KB mappings
             productLine: Product line filter
-            
+
         Returns:
             Tuple of (faq_result, faq_result_wo_pl)
         """
@@ -174,14 +159,12 @@ class ServiceDiscriminatorStub:
 class BaseServiceStub:
     """Stub for base service with GPT functionality."""
 
-    async def GPT41_mini_response(
-        self, prompt: List[Dict[str, str]]
-    ) -> str:
+    async def GPT41_mini_response(self, prompt: List[Dict[str, str]]) -> str:
         """Simulate GPT response.
-        
+
         Args:
             prompt: List of message dictionaries
-            
+
         Returns:
             Response string
         """
@@ -193,10 +176,10 @@ class ContentPolicyCheckStub:
 
     async def check(self, text: str) -> bool:
         """Simulate content policy check.
-        
+
         Args:
             text: Text to check
-            
+
         Returns:
             True if content passes policy
         """
@@ -208,10 +191,10 @@ class UserinfoDiscriminatorStub:
 
     async def discriminate(self, user_input: str) -> Dict[str, Any]:
         """Simulate user info extraction.
-        
+
         Args:
             user_input: User input text
-            
+
         Returns:
             Dictionary with extracted user info
         """
@@ -226,16 +209,14 @@ class UserinfoDiscriminatorStub:
 class FollowUpClassifierStub:
     """Stub for follow-up question classification."""
 
-    async def classify(
-        self, prev_q: str, prev_a: str, new_q: str
-    ) -> Dict[str, Any]:
+    async def classify(self, prev_q: str, prev_a: str, new_q: str) -> Dict[str, Any]:
         """Simulate follow-up classification.
-        
+
         Args:
             prev_q: Previous question
             prev_a: Previous answer
             new_q: New question
-            
+
         Returns:
             Dictionary with is_follow_up flag
         """
@@ -244,7 +225,7 @@ class FollowUpClassifierStub:
 
 class DependencyContainerStub:
     """Stub implementation of DependencyContainer.
-    
+
     This class simulates all external dependencies used by the
     TechAgentProcessor without requiring actual connections.
     """
@@ -254,9 +235,7 @@ class DependencyContainerStub:
         # Services
         self.cosmos_settings = CosmosConfigStub()
         self.redis_config = RedisConfigStub()
-        self.sentence_group_classification = (
-            SentenceGroupClassificationStub()
-        )
+        self.sentence_group_classification = SentenceGroupClassificationStub()
         self.sd = ServiceDiscriminatorStub()
         self.base_service = BaseServiceStub()
         self.content_policy_check = ContentPolicyCheckStub()
@@ -288,9 +267,7 @@ class DependencyContainerStub:
             }
         }
 
-        self.rag_hint_id_index_mapping = {
-            "hint_1_tw": {"index": 1}
-        }
+        self.rag_hint_id_index_mapping = {"hint_1_tw": {"index": 1}}
 
         self.PL_mappings = {
             "tw": ["notebook", "desktop", "phone", "accessories"],
@@ -310,7 +287,7 @@ class DependencyContainerStub:
 
     async def init_async(self, aiohttp_session):
         """Simulate async initialization.
-        
+
         Args:
             aiohttp_session: aiohttp session (not used in stub)
         """

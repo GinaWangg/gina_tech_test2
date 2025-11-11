@@ -5,7 +5,6 @@ support agent requests following AOCC FastAPI standards.
 """
 
 import asyncio
-import json
 import time
 import uuid
 from datetime import datetime
@@ -17,7 +16,6 @@ from core.timer import timed
 from src.stubs.dependency_container_stub import DependencyContainerStub
 from src.stubs.service_stubs import ChatFlowStub, ServiceProcessStub
 
-
 # Constants
 TOP1_KB_SIMILARITY_THRESHOLD = 0.87
 KB_THRESHOLD = 0.92
@@ -25,17 +23,15 @@ KB_THRESHOLD = 0.92
 
 class TechAgentHandler:
     """Handler class for tech agent processing logic.
-    
+
     This class encapsulates the business logic for processing technical
     support requests, including knowledge base search, response generation,
     and hint management.
     """
 
-    def __init__(
-        self, container: DependencyContainerStub, user_input: TechAgentInput
-    ):
+    def __init__(self, container: DependencyContainerStub, user_input: TechAgentInput):
         """Initialize the tech agent handler.
-        
+
         Args:
             container: Dependency container with services and data
             user_input: User input data
@@ -81,7 +77,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_initialize_chat")
     async def _initialize_chat(self) -> None:
         """Initialize chat session and retrieve history.
-        
+
         Retrieves chat history, language settings, and hint data.
         Also initializes service processors.
         """
@@ -138,18 +134,17 @@ class TechAgentHandler:
             self.user_input.product_line
             and self.last_bot_scope != self.user_input.product_line
         ):
-            self.user_info["main_product_category"] = (
-                self.user_input.product_line
-            )
+            self.user_info["main_product_category"] = self.user_input.product_line
             self.user_info["first_time"] = True
 
     @timed(task_name="tech_agent_process_history")
     async def _process_history(self) -> None:
         """Process chat history and classify sentence groups.
-        
+
         Groups related statements and prepares follow-up detection.
         """
         if len(self.his_inputs) <= 1:
+
             async def dummy_follow_up():
                 return {"is_follow_up": False}
 
@@ -159,28 +154,24 @@ class TechAgentHandler:
         # Prepare data
         self.prev_q = str(self.his_inputs[-2])
         self.prev_a = str(self.last_extract_output.get("answer", ""))
-        self.kb_no = str(
-            self.last_extract_output.get("kb", {}).get("kb_no", "")
-        )
+        self.kb_no = str(self.last_extract_output.get("kb", {}).get("kb_no", ""))
         self.content = str(
-            self.container.KB_mappings.get(
-                f"{self.kb_no}_{self.lang}", {}
-            ).get("content")
+            self.container.KB_mappings.get(f"{self.kb_no}_{self.lang}", {}).get(
+                "content"
+            )
         )
 
         # Execute sentence grouping
         group_task = self.container.sentence_group_classification
-        results_related = (
-            await group_task.sentence_group_classification(self.his_inputs)
+        results_related = await group_task.sentence_group_classification(
+            self.his_inputs
         )
 
         # Process grouping results
         groups = (results_related or {}).get("groups", [])
         if groups:
             statements = groups[-1].get("statements") or []
-            latest_group_statements = [
-                s for s in statements if isinstance(s, str)
-            ]
+            latest_group_statements = [s for s in statements if isinstance(s, str)]
             if latest_group_statements:
                 self.his_inputs = latest_group_statements.copy()
 
@@ -197,7 +188,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_get_user_and_scope_info")
     async def _get_user_and_scope_info(self) -> None:
         """Get user information and determine bot scope.
-        
+
         Extracts user info, search info, and determines the appropriate
         bot scope for the current request.
         """
@@ -211,12 +202,16 @@ class TechAgentHandler:
             self.last_hint
             and self.last_hint.get("hintType") == "productline-reask"
         ):
-            prompt_content = f'''Please determine whether the sentence "{self.his_inputs[-1]}" 
-            mentions any technical support-related issues, and reply with "true" or "false" only. 
-            Here is an example you can refer to. 
-            1. user's question:  it can only be turned on when plugged in. your response: "true" 
-            2. user's question:  wearable. your response: "false" 
-            3. user's question:  notebook. your response: "false"'''
+            prompt_content = (
+                f'Please determine whether the sentence '
+                f'"{self.his_inputs[-1]}" mentions any technical '
+                f'support-related issues, and reply with "true" or '
+                f'"false" only. Here is an example you can refer to. '
+                f'1. user\'s question: it can only be turned on when '
+                f'plugged in. your response: "true" '
+                f'2. user\'s question: wearable. your response: "false" '
+                f'3. user\'s question: notebook. your response: "false"'
+            )
             prompt = [{"role": "user", "content": prompt_content}]
             tech_support_task = (
                 self.container.base_service.GPT41_mini_response(prompt)
@@ -233,9 +228,7 @@ class TechAgentHandler:
         # Process results
         result_user_info = results[0]
         self.user_info_dict = (
-            result_user_info[0]
-            if not isinstance(result_user_info, Exception)
-            else {}
+            result_user_info[0] if not isinstance(result_user_info, Exception) else {}
         )
 
         search_info_result = results[1]
@@ -264,32 +257,28 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_search_knowledge_base")
     async def _search_knowledge_base(self) -> None:
         """Search knowledge base with product line filter.
-        
+
         Searches the FAQ database with and without product line filtering.
         """
-        response = (
-            await self.container.sd.service_discreminator_with_productline(
-                user_question_english=self.search_info,
-                site=self.user_input.websitecode,
-                specific_kb_mappings=self.container.specific_kb_mappings,
-                productLine=self.bot_scope_chat,
-            )
+        response = await self.container.sd.service_discreminator_with_productline(
+            user_question_english=self.search_info,
+            site=self.user_input.websitecode,
+            specific_kb_mappings=self.container.specific_kb_mappings,
+            productLine=self.bot_scope_chat,
         )
         self.faq_result = response[0]
         self.faq_result_wo_pl = response[1]
 
     def _process_kb_results(self) -> None:
         """Process and filter knowledge base search results.
-        
+
         Filters results by similarity threshold and prepares top KB items.
         """
         faq_list = self.faq_result.get("faq", [])
         sim_list = self.faq_result.get("cosineSimilarity", [])
 
         self.top4_kb_list = [
-            faq
-            for faq, sim in zip(faq_list, sim_list)
-            if sim >= KB_THRESHOLD
+            faq for faq, sim in zip(faq_list, sim_list) if sim >= KB_THRESHOLD
         ][:3]
         self.top1_kb = faq_list[0] if faq_list else None
         self.top1_kb_sim = sim_list[0] if sim_list else 0.0
@@ -306,7 +295,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_handle_no_product_line")
     async def _handle_no_product_line(self) -> None:
         """Handle case when no product line is specified.
-        
+
         Generates product line selection prompts for the user.
         """
         reask_result_task = asyncio.create_task(
@@ -368,21 +357,19 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_handle_high_similarity")
     async def _handle_high_similarity(self) -> None:
         """Handle case when KB similarity is high.
-        
+
         Generates response based on matched KB article.
         """
-        rag_response = (
-            await self.service_process.technical_support_hint_create(
-                self.top4_kb_list,
-                self.top1_kb,
-                self.top1_kb_sim,
-                self.lang,
-                self.search_info,
-                self.his_inputs,
-                system_code=self.user_input.system_code,
-                site=self.user_input.websitecode,
-                config=self.container.cfg,
-            )
+        rag_response = await self.service_process.technical_support_hint_create(
+            self.top4_kb_list,
+            self.top1_kb,
+            self.top1_kb_sim,
+            self.lang,
+            self.search_info,
+            self.his_inputs,
+            system_code=self.user_input.system_code,
+            site=self.user_input.websitecode,
+            config=self.container.cfg,
         )
         info = rag_response.get("response_info", {})
         content = rag_response.get("rag_content", {})
@@ -404,9 +391,7 @@ class TechAgentHandler:
                 "kb": {
                     "kb_no": str(info.get("top1_kb", "")),
                     "title": content.get("title", ""),
-                    "similarity": float(
-                        info.get("top1_similarity", 0.0) or 0.0
-                    ),
+                    "similarity": float(info.get("top1_similarity", 0.0) or 0.0),
                     "source": info.get("response_source", ""),
                     "exec_time": float(info.get("exec_time", 0.0) or 0.0),
                 },
@@ -442,7 +427,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_handle_low_similarity")
     async def _handle_low_similarity(self) -> None:
         """Handle case when KB similarity is low.
-        
+
         Suggests handoff to human agent with clarification prompts.
         """
         self.avatar_response = await self.avatar_process
@@ -512,8 +497,7 @@ class TechAgentHandler:
                                 {
                                     "type": "inquireKey",
                                     "value": (
-                                        "purchasing-recommendation-of-asus"
-                                        "-products"
+                                        "purchasing-recommendation-of-asus" "-products"
                                     ),
                                 },
                             ],
@@ -538,7 +522,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_generate_response")
     async def _generate_response(self) -> None:
         """Generate final response based on processing results.
-        
+
         Routes to appropriate handler based on bot scope and similarity.
         """
         if not self.bot_scope_chat:
@@ -554,7 +538,7 @@ class TechAgentHandler:
     @timed(task_name="tech_agent_log_and_save")
     async def _log_and_save_results(self) -> Dict[str, Any]:
         """Log and save final results to Cosmos DB.
-        
+
         Returns:
             Dictionary containing cosmos data
         """
@@ -593,19 +577,17 @@ class TechAgentHandler:
             "total_time": exec_time,
         }
 
-        asyncio.create_task(
-            self.container.cosmos_settings.insert_data(cosmos_data)
-        )
+        asyncio.create_task(self.container.cosmos_settings.insert_data(cosmos_data))
 
         return cosmos_data
 
     @timed(task_name="tech_agent_handler_run")
     async def run(self, log_record: bool = True) -> Dict[str, Any]:
         """Main processing flow for the tech agent.
-        
+
         Args:
             log_record: Whether to log results to Cosmos DB
-            
+
         Returns:
             Response data dictionary
         """

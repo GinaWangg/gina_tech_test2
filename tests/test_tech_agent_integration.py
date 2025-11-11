@@ -4,7 +4,6 @@ This module tests the complete refactored tech agent implementation
 in the api_structure directory.
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
@@ -15,15 +14,18 @@ import pytest_asyncio
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "api_structure"))
 
-from core.models import TechAgentInput
-from src.handlers.tech_agent_handler import TechAgentHandler
-from src.stubs.dependency_container_stub import DependencyContainerStub
+# noqa: E402 - import after path modification
+from core.models import TechAgentInput  # noqa: E402
+from src.handlers.tech_agent_handler import TechAgentHandler  # noqa: E402
+from src.stubs.dependency_container_stub import (  # noqa: E402
+    DependencyContainerStub,
+)
 
 
 @pytest_asyncio.fixture
 async def container():
     """Create a dependency container for testing.
-    
+
     Returns:
         DependencyContainerStub instance
     """
@@ -36,7 +38,7 @@ async def container():
 @pytest.fixture
 def sample_input():
     """Create sample input data for testing.
-    
+
     Returns:
         TechAgentInput instance
     """
@@ -54,7 +56,7 @@ def sample_input():
 @pytest.mark.asyncio
 async def test_tech_agent_basic_flow(container, sample_input):
     """Test basic tech agent processing flow.
-    
+
     Args:
         container: Dependency container fixture
         sample_input: Sample input fixture
@@ -74,7 +76,7 @@ async def test_tech_agent_basic_flow(container, sample_input):
 @pytest.mark.asyncio
 async def test_tech_agent_with_product_line(container):
     """Test tech agent with product line specified.
-    
+
     Args:
         container: Dependency container fixture
     """
@@ -102,7 +104,7 @@ async def test_tech_agent_with_product_line(container):
 @pytest.mark.asyncio
 async def test_tech_agent_no_product_line(container):
     """Test tech agent without product line (should trigger re-ask).
-    
+
     Args:
         container: Dependency container fixture
     """
@@ -127,7 +129,7 @@ async def test_tech_agent_no_product_line(container):
 @pytest.mark.asyncio
 async def test_tech_agent_response_fields(container, sample_input):
     """Test that all required response fields are present.
-    
+
     Args:
         container: Dependency container fixture
         sample_input: Sample input fixture
@@ -180,7 +182,7 @@ async def test_tech_agent_input_validation():
 @pytest.mark.asyncio
 async def test_tech_agent_handler_initialization(container, sample_input):
     """Test handler initialization.
-    
+
     Args:
         container: Dependency container fixture
         sample_input: Sample input fixture
@@ -198,7 +200,7 @@ async def test_tech_agent_handler_initialization(container, sample_input):
 @pytest.mark.asyncio
 async def test_tech_agent_kb_search(container, sample_input):
     """Test knowledge base search functionality.
-    
+
     Args:
         container: Dependency container fixture
         sample_input: Sample input fixture

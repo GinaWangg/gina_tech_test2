@@ -1,12 +1,13 @@
 """Pydantic models for API request/response schemas."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
 
 
 class TechAgentInput(BaseModel):
     """Input model for tech agent API endpoint.
-    
+
     Attributes:
         cus_id: Customer ID
         session_id: Session identifier
@@ -28,7 +29,7 @@ class TechAgentInput(BaseModel):
 
 class TechAgentResponse(BaseModel):
     """Response model for tech agent API endpoint.
-    
+
     Attributes:
         status: HTTP status code
         message: Response message
@@ -42,7 +43,7 @@ class TechAgentResponse(BaseModel):
 
 class KBInfo(BaseModel):
     """Knowledge Base information model.
-    
+
     Attributes:
         kb_no: Knowledge base number
         title: KB article title
@@ -60,7 +61,7 @@ class KBInfo(BaseModel):
 
 class TechAgentOutput(BaseModel):
     """Output data model for tech agent processing.
-    
+
     Attributes:
         answer: Generated answer text
         ask_flag: Whether additional question is needed
