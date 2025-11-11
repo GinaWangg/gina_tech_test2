@@ -32,9 +32,17 @@ class TechAgentHandler:
         self.faqs_wo_pl: List[Dict[str, Any]] = []
         self.his_inputs: List[str] = []
         self.user_info_dict: Dict[str, Any] = {}
+        self.user_info: Dict[str, Any] = {}
+        self.last_hint: Dict[str, Any] = {}
+        self.last_bot_scope: str = ""
         self.is_follow_up = False
         self.response_data: Dict[str, Any] = {}
         self.final_result: Dict[str, Any] = {}
+        # Mock PL_mappings for bot_scope validation
+        self.pl_mappings: Dict[str, List[str]] = {
+            "tw": ["notebook", "desktop", "phone", "monitor"],
+            "us": ["notebook", "desktop", "phone", "monitor"],
+        }
 
     def _log_execution_time(self) -> float:
         """Calculate and log execution time."""
@@ -62,13 +70,26 @@ class TechAgentHandler:
         # lang_task = cosmos_settings.get_language_by_websitecode_dev(
         #     user_input.websitecode
         # )
-        # results, last_hint, lang = await asyncio.gather(
+        # results, self.last_hint, lang = await asyncio.gather(
         #     messages_task, hint_task, lang_task
         # )
+        # (
+        #     his_inputs, chat_count, self.user_info,
+        #     self.last_bot_scope, last_extract_output
+        # ) = results
 
         # Mock data for testing
         his_inputs = [user_input.user_input]
         lang = "zh-TW" if user_input.websitecode == "tw" else "en"
+        self.last_hint = {}  # Mock last hint
+        self.user_info = {
+            "our_brand": "ASUS",
+            "location": None,
+            "main_product_category": user_input.product_line,
+            "sub_product_category": None,
+            "first_time": True,
+        }
+        self.last_bot_scope = ""
 
         log_json = json.dumps(
             {"his_inputs": his_inputs, "lang": lang},
@@ -121,12 +142,52 @@ class TechAgentHandler:
         logger.info(f"[搜尋資訊] {search_info}")
         return search_info
 
+    def _update_user_info(
+        self, previous: Dict[str, Any], current: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Update user info by merging current info with previous.
+
+        Args:
+            previous: Previous user info.
+            current: Current user info.
+
+        Returns:
+            Updated user info dictionary.
+        """
+        # Handle "null" strings
+        for key, values in current.items():
+            if values == "null":
+                current[key] = None
+
+        for key, values in previous.items():
+            if values == "null":
+                previous[key] = None
+
+        # Keep first product category if first_time
+        first_bot = None
+        if previous.get("first_time"):
+            first_bot = previous.get("main_product_category")
+            del previous["first_time"]
+
+        # Merge current into previous
+        for key, values in current.items():
+            if values:
+                previous[key] = values
+
+        # Restore first product category if it was set
+        if first_bot:
+            previous["main_product_category"] = first_bot
+
+        return previous
+
     async def _get_bot_scope(
         self,
         user_input: TechAgentInput,
         user_info: Dict[str, Any],
     ) -> str:
         """Determine bot scope (product line).
+
+        Implements the logic from ChatFlow.get_bot_scope_chat.
 
         Args:
             user_input: User input data.
@@ -135,22 +196,45 @@ class TechAgentHandler:
         Returns:
             Bot scope string.
         """
-        # If product line explicitly provided, use it
-        if user_input.product_line:
-            bot_scope = user_input.product_line
-        else:
+        # Check if user clicked product line hint
+        if self.last_hint:
+            if self.last_hint.get("hintType") == "productline-reask":
+                for hint in self.last_hint.get("intentHints", []):
+                    if user_input.user_input == hint.get("question"):
+                        bot_scope_chat = hint.get("title", "")
+                        logger.info(f"[Bot Scope] Matched hint: {bot_scope_chat}")
+                        return bot_scope_chat
+
+        # Merge user info
+        updated_user_info = self._update_user_info(self.user_info.copy(), user_info)
+
+        site = user_input.websitecode
+        bot_scope_chat = ""
+
+        # Determine bot scope from user info
+        if updated_user_info.get("main_product_category"):
             # TODO: Enable when environment ready
-            # bot_scope = await chat_flow.get_bot_scope_chat(
-            #     prev_user_info=prev_user_info,
-            #     curr_user_info=user_info,
-            #     last_bot_scope=last_bot_scope
+            # bot_scope_chat = await redis_config.get_productline(
+            #     updated_user_info.get("main_product_category"), site
             # )
+            # Mock: Use the category directly
+            bot_scope_chat = updated_user_info.get("main_product_category", "")
+        elif updated_user_info.get("sub_product_category"):
+            # TODO: Enable when environment ready
+            # bot_scope_chat = await redis_config.get_productline(
+            #     updated_user_info.get("sub_product_category"), site
+            # )
+            # Mock: Use the category directly
+            bot_scope_chat = updated_user_info.get("sub_product_category", "")
+        else:
+            bot_scope_chat = user_input.product_line
 
-            # Mock: Return empty if not provided
-            bot_scope = ""
+        # Validate bot scope against PL_mappings
+        if bot_scope_chat and bot_scope_chat not in self.pl_mappings.get(site, []):
+            bot_scope_chat = self.last_bot_scope
 
-        logger.info(f"[Bot Scope 判斷] {bot_scope}")
-        return bot_scope
+        logger.info(f"[Bot Scope 判斷] {bot_scope_chat}")
+        return bot_scope_chat
 
     async def _search_knowledge_base(
         self,
