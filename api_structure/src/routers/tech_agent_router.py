@@ -51,7 +51,7 @@ async def tech_agent_endpoint(
         return JSONResponse(
             content={
                 "status": 500,
-                "message": f"Internal server error: {str(e)}",
+                "message": "Internal server error occurred",
                 "result": {}
             },
             status_code=500
