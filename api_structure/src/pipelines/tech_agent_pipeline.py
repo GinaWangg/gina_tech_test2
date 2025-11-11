@@ -1,6 +1,6 @@
 """Tech agent pipeline - Orchestration layer."""
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 from api_structure.core.logger import get_logger
 from api_structure.core.timer import timed
@@ -23,10 +23,10 @@ class TechAgentPipeline:
         user_input: TechAgentInput,
     ) -> Dict[str, Any]:
         """Execute the tech agent pipeline.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Response data dictionary.
         """

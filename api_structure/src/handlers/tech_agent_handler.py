@@ -1,18 +1,13 @@
 """Tech agent handler - Business logic layer."""
 
-import asyncio
 import json
 import time
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from api_structure.core.logger import get_logger
 from api_structure.core.timer import timed
-from api_structure.src.models.tech_agent_models import (
-    TechAgentInput,
-    TechAgentOutput,
-)
+from api_structure.src.models.tech_agent_models import TechAgentInput
 
 logger = get_logger(__name__)
 
@@ -52,10 +47,10 @@ class TechAgentHandler:
         self, user_input: TechAgentInput
     ) -> Tuple[List[str], str]:
         """Initialize chat and retrieve history.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Tuple of (his_inputs, lang).
         """
@@ -84,14 +79,12 @@ class TechAgentHandler:
 
         return his_inputs, lang
 
-    async def _get_user_info(
-        self, his_inputs: List[str]
-    ) -> Dict[str, Any]:
+    async def _get_user_info(self, his_inputs: List[str]) -> Dict[str, Any]:
         """Get user information from chat history.
-        
+
         Args:
             his_inputs: Historical user inputs.
-            
+
         Returns:
             User info dictionary.
         """
@@ -112,10 +105,10 @@ class TechAgentHandler:
 
     async def _get_search_info(self, his_inputs: List[str]) -> str:
         """Get search info from user inputs.
-        
+
         Args:
             his_inputs: Historical user inputs.
-            
+
         Returns:
             Search info string.
         """
@@ -134,11 +127,11 @@ class TechAgentHandler:
         user_info: Dict[str, Any],
     ) -> str:
         """Determine bot scope (product line).
-        
+
         Args:
             user_input: User input data.
             user_info: User information.
-            
+
         Returns:
             Bot scope string.
         """
@@ -166,12 +159,12 @@ class TechAgentHandler:
         product_line: str,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Search knowledge base with product line.
-        
+
         Args:
             search_info: Search query.
             websitecode: Website code.
             product_line: Product line.
-            
+
         Returns:
             Tuple of (faq_result, faq_result_wo_pl).
         """
@@ -198,8 +191,7 @@ class TechAgentHandler:
         }
 
         logger.info(
-            "[ServiceDiscriminator] %s",
-            json.dumps(faq_result, ensure_ascii=False)
+            "[ServiceDiscriminator] %s", json.dumps(faq_result, ensure_ascii=False)
         )
         return faq_result, faq_result_wo_pl
 
@@ -209,7 +201,7 @@ class TechAgentHandler:
         faq_result_wo_pl: Dict[str, Any],
     ) -> None:
         """Process and filter results from KB search.
-        
+
         Args:
             faq_result: FAQ results with product line.
             faq_result_wo_pl: FAQ results without product line.
@@ -218,9 +210,7 @@ class TechAgentHandler:
         sim_list = faq_result.get("cosineSimilarity", [])
 
         self.top4_kb_list = [
-            faq
-            for faq, sim in zip(faq_list, sim_list)
-            if sim >= KB_THRESHOLD
+            faq for faq, sim in zip(faq_list, sim_list) if sim >= KB_THRESHOLD
         ][:3]
         self.top1_kb = faq_list[0] if faq_list else None
         self.top1_kb_sim = sim_list[0] if sim_list else 0.0
@@ -239,17 +229,17 @@ class TechAgentHandler:
         user_input: TechAgentInput,
     ) -> Dict[str, Any]:
         """Handle no product line case.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Response data dictionary.
         """
         logger.info("[無產品線] 進行產品線追問")
 
         # TODO: Enable when environment ready
-        # ask_response, rag_response = await 
+        # ask_response, rag_response = await
         #   technical_support_productline_reask(...)
         # relative_questions = rag_response.get("relative_questions", [])
 
@@ -313,16 +303,14 @@ class TechAgentHandler:
         user_input: TechAgentInput,
     ) -> Dict[str, Any]:
         """Handle high similarity case.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Response data dictionary.
         """
-        logger.info(
-            f"[相似度高於門檻] 相似度={self.top1_kb_sim}，建立 Hint 回應"
-        )
+        logger.info(f"[相似度高於門檻] 相似度={self.top1_kb_sim}，建立 Hint 回應")
 
         # TODO: Enable when environment ready
         # rag_response = await technical_support_hint_create(...)
@@ -334,7 +322,7 @@ class TechAgentHandler:
             "title": "筆電登入問題排解",
             "content": "若筆電卡在登入畫面，請嘗試以下步驟...",
             "link": f"https://www.asus.com/{user_input.websitecode}/"
-                    f"support/FAQ/{self.top1_kb}",
+            f"support/FAQ/{self.top1_kb}",
         }
 
         avatar_message = "我找到了相關的解決方案，希望能幫到您！"
@@ -390,10 +378,10 @@ class TechAgentHandler:
         user_input: TechAgentInput,
     ) -> Dict[str, Any]:
         """Handle low similarity case.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Response data dictionary.
         """
@@ -436,8 +424,8 @@ class TechAgentHandler:
                     "stream": False,
                     "type": "avatarAsk",
                     "message": "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
-                               "比如「ROG Flow X16」或「我想查產品保固到期日」。"
-                               "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！",
+                    "比如「ROG Flow X16」或「我想查產品保固到期日」。"
+                    "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！",
                     "remark": [],
                     "option": [
                         {
@@ -460,7 +448,7 @@ class TechAgentHandler:
                                 {
                                     "type": "inquireKey",
                                     "value": "purchasing-recommendation-of-asus"
-                                            "-products",
+                                    "-products",
                                 },
                             ],
                         },
@@ -489,7 +477,7 @@ class TechAgentHandler:
         exec_time: float,
     ) -> None:
         """Log results to Cosmos DB.
-        
+
         Args:
             user_input: User input data.
             exec_time: Execution time.
@@ -527,16 +515,14 @@ class TechAgentHandler:
         user_input: TechAgentInput,
     ) -> Dict[str, Any]:
         """Main processing flow for tech agent.
-        
+
         Args:
             user_input: User input data.
-            
+
         Returns:
             Response data dictionary.
         """
-        log_json = json.dumps(
-            user_input.model_dump(), ensure_ascii=False, indent=2
-        )
+        log_json = json.dumps(user_input.model_dump(), ensure_ascii=False, indent=2)
         logger.info(f"[Agent 啟動] 輸入內容: {log_json}")
 
         # Initialize chat and get history
@@ -545,9 +531,7 @@ class TechAgentHandler:
         # Get user info and bot scope
         self.user_info_dict = await self._get_user_info(self.his_inputs)
         self.search_info = await self._get_search_info(self.his_inputs)
-        self.bot_scope_chat = await self._get_bot_scope(
-            user_input, self.user_info_dict
-        )
+        self.bot_scope_chat = await self._get_bot_scope(user_input, self.user_info_dict)
 
         # Search knowledge base
         faq_result, faq_result_wo_pl = await self._search_knowledge_base(

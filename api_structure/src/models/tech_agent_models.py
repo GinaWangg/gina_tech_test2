@@ -1,6 +1,5 @@
 """Pydantic models for tech agent API."""
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -14,9 +13,7 @@ class TechAgentInput(BaseModel):
     chat_id: str = Field(..., description="Chat ID")
     user_input: str = Field(..., description="User input message")
     websitecode: str = Field(..., description="Website code (e.g., tw, us)")
-    product_line: str = Field(
-        default="", description="Product line (optional)"
-    )
+    product_line: str = Field(default="", description="Product line (optional)")
     system_code: str = Field(..., description="System code (e.g., rog, asus)")
 
 
@@ -40,9 +37,7 @@ class TechAgentOutput(BaseModel):
     hint_candidates: List[Dict[str, Any]] = Field(
         default_factory=list, description="Hint candidates"
     )
-    kb: KBInfo = Field(
-        default_factory=KBInfo, description="Knowledge base information"
-    )
+    kb: KBInfo = Field(default_factory=KBInfo, description="Knowledge base information")
 
 
 class RenderOption(BaseModel):
@@ -79,9 +74,7 @@ class TechAgentResponse(BaseModel):
 
     status: int = Field(default=200, description="HTTP status code")
     message: str = Field(default="OK", description="Response message")
-    result: Any = Field(
-        default_factory=dict, description="Result data"
-    )
+    result: Any = Field(default_factory=dict, description="Result data")
 
 
 class CosmosLogData(BaseModel):

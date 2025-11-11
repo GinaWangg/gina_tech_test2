@@ -1,6 +1,6 @@
 """Tech agent router - API endpoint layer."""
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
@@ -19,11 +19,11 @@ async def tech_agent_endpoint(
     request: Request,
 ) -> Dict[str, Any]:
     """Tech agent API endpoint.
-    
+
     Args:
         user_input: User input data model.
         request: FastAPI request object.
-        
+
     Returns:
         Response data dictionary.
     """
