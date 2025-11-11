@@ -21,6 +21,7 @@ from api_structure.src.clients.mock_container_client import (
     MockDependencyContainer,
     MockServiceProcess,
 )
+from api_structure.src.handlers.response_generator import ResponseGenerator
 from api_structure.src.models.tech_agent_models import TechAgentInput
 
 # Constants
@@ -29,7 +30,12 @@ KB_THRESHOLD = 0.92
 
 
 class TechAgentHandler:
-    """Handler for technical support agent processing."""
+    """Handler for technical support agent processing.
+
+    This is the main entry point for processing tech agent requests.
+    The class orchestrates the flow but delegates specific tasks to
+    focused helper methods and components.
+    """
 
     def __init__(self, container: MockDependencyContainer, user_input: TechAgentInput):
         """Initialize the tech agent handler.
@@ -42,9 +48,16 @@ class TechAgentHandler:
         self.user_input = user_input
         self.start_time = time.perf_counter()
 
-        # Initialize attributes to be used across methods
+        # Core components
         self.chat_flow: Optional[MockChatFlow] = None
         self.service_process: Optional[MockServiceProcess] = None
+        self.response_generator: Optional[ResponseGenerator] = None
+
+        # State variables
+        self._init_state_variables()
+
+    def _init_state_variables(self) -> None:
+        """Initialize state variables for the handler."""
         self.his_inputs: Optional[List[str]] = None
         self.user_info: Optional[Dict] = None
         self.last_bot_scope: Optional[str] = None
@@ -62,48 +75,153 @@ class TechAgentHandler:
         self.top1_kb_sim: float = 0.0
         self.top4_kb_list: List[str] = []
         self.faqs_wo_pl: List[Dict] = []
-        self.response_data: Dict = {}
-
         self.type: str = ""
-        self.avatar_response: Any = None
         self.renderId: str = ""
-        self.final_result: Dict = {}
 
     @timed(task_name="tech_agent_process")
-    async def process(self) -> Dict[str, Any]:
-        """Main processing flow for the tech agent.
+    async def run(self) -> Dict[str, Any]:
+        """Main entry point for processing tech agent requests.
+
+        This is the primary method that orchestrates the entire flow.
 
         Returns:
             Response dictionary with status, message, and result
         """
-        # Log input
+        self._log_input()
+
+        # Initialize components
+        await self._initialize()
+
+        # Process request
+        await self._process_request()
+
+        # Generate and return response
+        result = await self._generate_final_response()
+
+        # Log results
+        await self._log_results(result)
+
+        return result
+
+    def _log_input(self) -> None:
+        """Log incoming request."""
         log_json = json.dumps(
             self.user_input.model_dump(), ensure_ascii=False, indent=2
         )
         print(f"\n[Agent 啟動] 輸入內容: {log_json}")
 
-        # Initialize
+    async def _initialize(self) -> None:
+        """Initialize all required components and data."""
         await self._initialize_chat()
+        self.renderId = str(uuid.uuid4())
+
+        # Initialize response generator
+        self.response_generator = ResponseGenerator(
+            service_process=self.service_process,
+            chat_flow=self.chat_flow,
+            user_input=self.user_input,
+            render_id=self.renderId,
+            lang=self.lang,
+        )
+
+    async def _process_request(self) -> None:
+        """Process the user request through the pipeline."""
         await self._process_history()
-
-        # Get user and scope info
         await self._get_user_and_scope_info()
-
-        # Search knowledge base
         await self._search_knowledge_base()
         self._process_kb_results()
+        self._check_follow_up()
 
-        # Check if follow-up (mocked to always False for now)
+    def _check_follow_up(self) -> None:
+        """Check if this is a follow-up question."""
         self.is_follow_up = False
         print(f"是否延續問題追問 : {self.is_follow_up}")
 
-        # Generate response
-        await self._generate_response()
+    async def _generate_final_response(self) -> Dict[str, Any]:
+        """Generate the final response based on processed data.
 
-        # Log results (mocked - no actual Cosmos write)
-        await self._log_and_save_results()
+        Returns:
+            Final response dictionary
+        """
+        if not self.bot_scope_chat:
+            return await self.response_generator.generate_no_product_line_response(
+                his_inputs=self.his_inputs,
+                faqs_wo_pl=self.faqs_wo_pl,
+                search_info=self.search_info,
+                containers=self.containers,
+            )
+        elif self.top1_kb_sim > TOP1_KB_SIMILARITY_THRESHOLD:
+            return await self.response_generator.generate_high_similarity_response(
+                top4_kb_list=self.top4_kb_list,
+                top1_kb=self.top1_kb,
+                top1_kb_sim=self.top1_kb_sim,
+                search_info=self.search_info,
+                his_inputs=self.his_inputs,
+                containers=self.containers,
+            )
+        else:
+            return await self.response_generator.generate_low_similarity_response(
+                top1_kb=self.top1_kb,
+                top1_kb_sim=self.top1_kb_sim,
+                his_inputs=self.his_inputs,
+                kb_mappings=self.containers.KB_mappings,
+            )
 
-        return self.final_result
+    async def _log_results(self, result: Dict[str, Any]) -> None:
+        """Log and save results to storage.
+
+        Args:
+            result: The final result dictionary
+        """
+        end_time = time.perf_counter()
+        exec_time = round(end_time - self.start_time, 2)
+        print(f"\n[執行時間] tech_agent_api 共耗時 {exec_time} 秒\n")
+
+        cosmos_data = self._build_cosmos_data(result, exec_time)
+        await self.containers.cosmos_settings.insert_data(cosmos_data)
+
+        log_json = json.dumps(cosmos_data, ensure_ascii=False, indent=2)
+        print(f"\n[Cosmos DB] 寫入資料: {log_json}\n")
+
+        # Set extract log for middleware
+        set_extract_log(self.response_generator.response_data)
+
+    def _build_cosmos_data(self, result: Dict[str, Any], exec_time: float) -> Dict:
+        """Build Cosmos DB data structure.
+
+        Args:
+            result: Final result dictionary
+            exec_time: Execution time in seconds
+
+        Returns:
+            Cosmos data dictionary
+        """
+        return {
+            "id": (
+                f"{self.user_input.cus_id}-{self.user_input.session_id}-"
+                f"{self.user_input.chat_id}"
+            ),
+            "cus_id": self.user_input.cus_id,
+            "session_id": self.user_input.session_id,
+            "chat_id": self.user_input.chat_id,
+            "createDate": datetime.utcnow().isoformat() + "Z",
+            "user_input": self.user_input.user_input,
+            "websitecode": self.user_input.websitecode,
+            "product_line": self.user_input.product_line,
+            "system_code": self.user_input.system_code,
+            "user_info": self.user_info_dict,
+            "process_info": {
+                "bot_scope": self.bot_scope_chat,
+                "search_info": self.search_info,
+                "is_follow_up": self.is_follow_up,
+                "faq_pl": self.faq_result,
+                "faq_wo_pl": self.faq_result_wo_pl,
+                "language": self.lang,
+            },
+            "final_result": result,
+            "extract": self.response_generator.response_data,
+            "total_time": exec_time,
+        }
 
     async def _initialize_chat(self) -> None:
         """Initialize chat, retrieve history and basic info.
@@ -281,307 +399,3 @@ class TechAgentHandler:
                 self.faq_result_wo_pl.get("productLine", []),
             )
         ]
-
-    async def _generate_response(self) -> None:
-        """Generate the final response based on the processed data."""
-        if not self.bot_scope_chat:
-            self.type = "avatarAskProductLine"
-            await self._handle_no_product_line()
-        elif self.top1_kb_sim > TOP1_KB_SIMILARITY_THRESHOLD:
-            self.type = "avatarTechnicalSupport"
-            await self._handle_high_similarity()
-        else:
-            self.type = "avatarText"
-            await self._handle_low_similarity()
-
-    async def _handle_no_product_line(self) -> None:
-        """Handle case when no product line is identified.
-
-        # TODO: Enable when environment ready
-        # This would call real RAG service for product line reask
-        """
-        print("\n[無產品線] 進行產品線追問")
-
-        # Get avatar response
-        self.avatar_response = (
-            await self.service_process.ts_rag.reply_with_faq_gemini_sys_avatar(
-                self.his_inputs[-1], self.lang
-            )
-        )
-
-        # Get reask response
-        ask_response, rag_response = (
-            await self.service_process.technical_support_productline_reask(
-                user_input=self.user_input.user_input,
-                faqs_wo_pl=self.faqs_wo_pl,
-                site=self.user_input.websitecode,
-                lang=self.lang,
-                system_code=self.user_input.system_code,
-            )
-        )
-
-        relative_questions = rag_response.get("relative_questions", [])
-
-        # Insert hint data (mocked)
-        await self.containers.cosmos_settings.insert_hint_data(
-            chatflow_data=self.chat_flow.data,
-            intent_hints=relative_questions,
-            search_info=self.search_info,
-            hint_type="productline-reask",
-        )
-
-        self.response_data = {
-            "status": 200,
-            "type": "reask",
-            "message": "ReAsk: Need product line clarification",
-            "output": {
-                "answer": ask_response["ask_content"],
-                "ask_flag": ask_response["ask_flag"],
-                "hint_candidates": relative_questions,
-                "kb": {},
-            },
-        }
-
-        self.final_result = {
-            "status": 200,
-            "message": "OK",
-            "result": [
-                {
-                    "renderId": self.renderId,
-                    "stream": False,
-                    "type": "avatarAskProductLine",
-                    "message": self.avatar_response["response"].answer,
-                    "remark": [],
-                    "option": [
-                        {
-                            "name": item["title_name"],
-                            "value": item["title"],
-                            "icon": item["icon"],
-                        }
-                        for item in relative_questions
-                    ],
-                }
-            ],
-        }
-
-    async def _handle_high_similarity(self) -> None:
-        """Handle case when similarity is high enough.
-
-        # TODO: Enable when environment ready
-        # This would call real RAG service for hint creation
-        """
-        print(f"\n[相似度高於門檻] 相似度={self.top1_kb_sim}，建立 Hint 回應")
-
-        rag_response = await self.service_process.technical_support_hint_create(
-            self.top4_kb_list,
-            self.top1_kb,
-            self.top1_kb_sim,
-            self.lang,
-            self.search_info,
-            self.his_inputs,
-            system_code=self.user_input.system_code,
-            site=self.user_input.websitecode,
-            config=self.containers.cfg,
-        )
-
-        info = rag_response.get("response_info", {})
-        content = rag_response.get("rag_content", {})
-
-        # Get avatar response
-        self.avatar_response = (
-            await self.service_process.ts_rag.reply_with_faq_gemini_sys_avatar(
-                self.his_inputs[-1], self.lang, content
-            )
-        )
-
-        self.response_data = {
-            "status": 200,
-            "type": "answer",
-            "message": "RAG Response",
-            "output": {
-                "answer": content.get("ask_content", ""),
-                "ask_flag": False,
-                "hint_candidates": rag_response.get("relative_questions", []),
-                "kb": {
-                    "kb_no": str(info.get("top1_kb", "")),
-                    "title": content.get("title", ""),
-                    "similarity": float(info.get("top1_similarity", 0.0) or 0.0),
-                    "source": info.get("response_source", ""),
-                    "exec_time": float(info.get("exec_time", 0.0) or 0.0),
-                },
-            },
-        }
-
-        self.final_result = {
-            "status": 200,
-            "message": "OK",
-            "result": [
-                {
-                    "renderId": self.renderId,
-                    "stream": False,
-                    "type": "avatarTechnicalSupport",
-                    "message": self.avatar_response["response"].answer,
-                    "remark": [],
-                    "option": [
-                        {
-                            "type": "faqcards",
-                            "cards": [
-                                {
-                                    "link": content.get("link", ""),
-                                    "title": content.get("title", ""),
-                                    "content": content.get("content", ""),
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-        }
-
-    async def _handle_low_similarity(self) -> None:
-        """Handle case when similarity is too low.
-
-        # TODO: Enable when environment ready
-        # This would get avatar response and return handoff
-        """
-        print(f"\n[相似度低於門檻] 相似度={self.top1_kb_sim}，轉人工")
-
-        # Get avatar response
-        self.avatar_response = (
-            await self.service_process.ts_rag.reply_with_faq_gemini_sys_avatar(
-                self.his_inputs[-1], self.lang
-            )
-        )
-
-        self.response_data = {
-            "status": 200,
-            "type": "handoff",
-            "message": "相似度低，建議轉人工",
-            "output": {
-                "answer": "",
-                "ask_flag": False,
-                "hint_candidates": [],
-                "kb": {
-                    "kb_no": str(self.top1_kb or ""),
-                    "title": str(
-                        self.containers.KB_mappings.get(
-                            f"{self.top1_kb}_{self.lang}", {}
-                        ).get("title", "")
-                    ),
-                    "similarity": float(self.top1_kb_sim or 0.0),
-                    "source": "",
-                    "exec_time": 0.0,
-                },
-            },
-        }
-
-        self.final_result = {
-            "status": 200,
-            "message": "OK",
-            "result": [
-                {
-                    "renderId": self.renderId,
-                    "stream": False,
-                    "type": "avatarText",
-                    "message": self.avatar_response["response"].answer,
-                    "remark": [],
-                    "option": [],
-                },
-                {
-                    "renderId": self.renderId,
-                    "stream": False,
-                    "type": "avatarAsk",
-                    "message": (
-                        "你可以告訴我像是產品全名、型號，或你想問的活動名稱～"
-                        "比如「ROG Flow X16」或「我想查產品保固到期日」。"
-                        "給我多一點線索，我就能更快幫你找到對的資料，也不會漏掉重點！"
-                    ),
-                    "remark": [],
-                    "option": [
-                        {
-                            "name": "我想知道 ROG FLOW X16 的規格",
-                            "value": "我想知道 ROG FLOW X16 的規格",
-                            "answer": [
-                                {"type": "inquireMode", "value": "intent"},
-                                {
-                                    "type": "inquireKey",
-                                    "value": "specification-consultation",
-                                },
-                                {"type": "mainProduct", "value": 25323},
-                            ],
-                        },
-                        {
-                            "name": "請幫我推薦16吋筆電",
-                            "value": "請幫我推薦16吋筆電",
-                            "answer": [
-                                {"type": "inquireMode", "value": "intent"},
-                                {
-                                    "type": "inquireKey",
-                                    "value": (
-                                        "purchasing-recommendation-" "of-asus-products"
-                                    ),
-                                },
-                            ],
-                        },
-                        {
-                            "name": "請幫我介紹 ROG Phone 8 的特色",
-                            "value": "請幫我介紹 ROG Phone 8 的特色",
-                            "answer": [
-                                {"type": "inquireMode", "value": "intent"},
-                                {
-                                    "type": "inquireKey",
-                                    "value": "specification-consultation",
-                                },
-                                {"type": "mainProduct", "value": 25323},
-                            ],
-                        },
-                    ],
-                },
-            ],
-        }
-
-    async def _log_and_save_results(self) -> None:
-        """Log and save the final results to Cosmos DB.
-
-        # TODO: Enable when environment ready
-        # This would write to actual Cosmos DB
-        """
-        end_time = time.perf_counter()
-        exec_time = round(end_time - self.start_time, 2)
-        print(f"\n[執行時間] tech_agent_api 共耗時 {exec_time} 秒\n")
-
-        cosmos_data = {
-            "id": (
-                f"{self.user_input.cus_id}-{self.user_input.session_id}-"
-                f"{self.user_input.chat_id}"
-            ),
-            "cus_id": self.user_input.cus_id,
-            "session_id": self.user_input.session_id,
-            "chat_id": self.user_input.chat_id,
-            "createDate": datetime.utcnow().isoformat() + "Z",
-            "user_input": self.user_input.user_input,
-            "websitecode": self.user_input.websitecode,
-            "product_line": self.user_input.product_line,
-            "system_code": self.user_input.system_code,
-            "user_info": self.user_info_dict,
-            "process_info": {
-                "bot_scope": self.bot_scope_chat,
-                "search_info": self.search_info,
-                "is_follow_up": self.is_follow_up,
-                "faq_pl": self.faq_result,
-                "faq_wo_pl": self.faq_result_wo_pl,
-                "language": self.lang,
-            },
-            "final_result": self.final_result,
-            "extract": self.response_data,
-            "total_time": exec_time,
-        }
-
-        # Mock: No actual insert
-        await self.containers.cosmos_settings.insert_data(cosmos_data)
-
-        log_json = json.dumps(cosmos_data, ensure_ascii=False, indent=2)
-        print(f"\n[Cosmos DB] 寫入資料: {log_json}\n")
-
-        # Set extract log for middleware
-        set_extract_log(self.response_data)

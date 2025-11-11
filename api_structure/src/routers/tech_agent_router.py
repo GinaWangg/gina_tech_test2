@@ -22,8 +22,8 @@ async def tech_agent_api(user_input: TechAgentInput, request: Request):
     # Get container from app state
     container = request.app.state.mock_container
 
-    # Create handler and process
+    # Create handler and run
     handler = TechAgentHandler(container=container, user_input=user_input)
-    result = await handler.process()
+    result = await handler.run()
 
     return result
