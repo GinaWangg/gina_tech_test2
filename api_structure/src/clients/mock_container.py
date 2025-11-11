@@ -2,6 +2,9 @@
 
 from typing import Any, Dict, List, Optional
 
+# Note: BaseService is available for use when environment is ready
+# from api_structure.src.services.base_service import BaseService
+
 
 class MockCosmosSettings:
     """Mock Cosmos DB settings - stubbed for testing.
@@ -138,18 +141,6 @@ class MockSentenceGroupClassification:
         return {"groups": [{"statements": his_inputs}]}
 
 
-class MockBaseService:
-    """Mock base service for GPT calls.
-
-    TODO: Enable when environment ready
-    """
-
-    async def GPT41_mini_response(self, prompt: List[Dict]) -> str:
-        """Mock GPT response."""
-        # Mock response - TODO: restore after env ready
-        return "true"
-
-
 class MockDependencyContainer:
     """Mock dependency container for tech agent.
 
@@ -169,7 +160,11 @@ class MockDependencyContainer:
         self.redis_config = MockRedisConfig()
         self.sd = MockServiceDiscriminator()
         self.sentence_group_classification = MockSentenceGroupClassification()
-        self.base_service = MockBaseService()
+
+        # BaseService is not mocked - it should use real implementation
+        # when environment is ready with proper credentials
+        # For now, set to None since the simplified handler doesn't use it
+        self.base_service = None
 
         # Mock KB mappings - TODO: restore after env ready
         self.KB_mappings = {
