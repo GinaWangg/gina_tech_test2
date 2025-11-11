@@ -12,29 +12,42 @@ from api_structure.src.clients.aiohttp_client import AiohttpClient
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    
+    # Skip client initialization if in test mode or missing credentials
+    is_test_mode = os.getenv("TESTING", "false").lower() == "true"
+    
+    if not is_test_mode:
+        try:
+            # connection pooling
+            gpt_client = GptClient()
+            await gpt_client.initialize()
+            app.state.gpt_client = gpt_client
 
-    # aiohttp client with connection pooling
-    aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
-    )
-    await aiohttp_client.initialize()
-    app.state.aiohttp_client = aiohttp_client
+            # aiohttp client with connection pooling
+            aiohttp_client = AiohttpClient(
+                timeout=30,
+                connector_limit=100,
+                connector_limit_per_host=30
+            )
+            await aiohttp_client.initialize()
+            app.state.aiohttp_client = aiohttp_client
 
-    # cosmos_client = CosmosDbClient()
-    # await cosmos_client.initialize()
-    # app.state.cosmos_client = cosmos_client
+            # cosmos_client = CosmosDbClient()
+            # await cosmos_client.initialize()
+            # app.state.cosmos_client = cosmos_client
+        except (ValueError, KeyError) as e:
+            print(f"Skipping client initialization: {e}")
+            # Set mock clients for testing
+            app.state.gpt_client = None
+            app.state.aiohttp_client = None
 
     yield
     
     print("Application shutting down...")
-    await app.state.gpt_client.close()
-    await app.state.aiohttp_client.close()
+    if hasattr(app.state, "gpt_client") and app.state.gpt_client:
+        await app.state.gpt_client.close()
+    if hasattr(app.state, "aiohttp_client") and app.state.aiohttp_client:
+        await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
 
 
