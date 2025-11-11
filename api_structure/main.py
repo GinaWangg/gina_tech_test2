@@ -1,6 +1,6 @@
 # 統一載入設定檔
 import os
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
@@ -57,7 +57,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
