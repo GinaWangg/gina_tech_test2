@@ -25,16 +25,16 @@ class TechAgentPipeline:
         Execute the tech agent processing pipeline.
 
         This method orchestrates the complete tech agent workflow
-        using the original processing logic.
+        with mocked responses (due to permission limitations).
 
         Args:
             request: Tech agent request data
 
         Returns:
-            Complete response including final_result and cosmos_data
+            Complete cosmos_data structure matching original format
         """
-        # 執行處理邏輯（使用原始的 TechAgentProcessor）
-        result = await self.handler.process(request)
+        # 執行處理邏輯（使用模擬的回應）
+        cosmos_data = await self.handler.process(request)
 
-        # 返回包含 final_result 的完整回應
-        return result["cosmos_data"]
+        # 返回完整的 cosmos_data
+        return cosmos_data

@@ -1,117 +1,47 @@
 # 統一載入設定檔
 import os
-import pickle
-import asyncio
 import api_structure.core.config
 
-# ---------------------- Lifespan Configuration --------------------------------
-from fastapi.concurrency import asynccontextmanager
+# ---------------------- Lifespan Configuration -------------------------------
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from api_structure.src.clients.gpt import GptClient
-from api_structure.src.clients.aiohttp_client import AiohttpClient
-from src.integrations.containers import DependencyContainer
-from src.services.update_service import UpdateService
-from utils.logger import logger
-import aiohttp
-
-# from src.db.cosmos_client import CosmosDbClient
 
 
-# ========================
-# ✅ 輔助函式
-# ========================
-async def load_rag_mappings(containers, update_service):
-    """非阻塞載入 RAG mappings"""
-    try:
-        loop = asyncio.get_event_loop()
+# 由於權限問題，目前不需要初始化完整的 DependencyContainer
+# 僅創建一個簡單的 mock container 用於結構展示
+class MockContainer:
+    """Mock container for structure demonstration."""
 
-        def load_files():
-            with open(
-                "config/rag_hint_id_index_mapping.pkl", "rb"
-            ) as f1, open("config/rag_mappings.pkl", "rb") as f2:
-                return pickle.load(f1), pickle.load(f2)
-
-        # 在線程池中執行，不阻塞事件循環
-        mapping1, mapping2 = await loop.run_in_executor(None, load_files)
-
-        containers.rag_hint_id_index_mapping = mapping1
-        containers.rag_mappings = mapping2
-
-    except Exception as e:
-        logger.warning(f"[Memory Load Error] {e}, updating from database...")
-        await update_service.update_technical_rag()
-
-
-async def load_kb_mappings(containers, update_service):
-    """非阻塞載入 KB mappings"""
-    try:
-        loop = asyncio.get_event_loop()
-
-        def load_file():
-            with open("config/kb_mappings.pkl", "rb") as f:
-                return pickle.load(f)
-
-        containers.KB_mappings = await loop.run_in_executor(None, load_file)
-
-    except Exception as e:
-        logger.warning(
-            f"[Load KB Mapping Error] {e}, updating from database..."
-        )
-        await update_service.update_KB()
+    def __init__(self):
+        """Initialize mock container with minimal attributes."""
+        self.cfg = {}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """應用程式生命週期管理 - 與原始 main.py 相同"""
+    """
+    應用程式生命週期管理。
+
+    由於 API 和 Cosmos DB 的權限問題，目前使用簡化版本。
+    實際部署時應使用完整的 DependencyContainer 初始化。
+
+    完整初始化應包括：
+    - DependencyContainer 初始化
+    - aiohttp session 配置
+    - RAG mappings 載入
+    - KB mappings 載入
+    - 其他服務初始化
+    """
     print("Application starting up...")
 
-    # 創建 aiohttp session（與原始 main.py 相同的配置）
-    connector = aiohttp.TCPConnector(
-        limit=100,  # 總連線數上限
-        limit_per_host=30,  # 每個 host 的連線數上限
-        ttl_dns_cache=300,  # DNS 快取 5 分鐘
-        enable_cleanup_closed=True,  # 啟用關閉連線清理
-        force_close=False,  # 保持連線重用
-        keepalive_timeout=30,  # Keep-alive 超時 30 秒
-    )
-
-    timeout = aiohttp.ClientTimeout(
-        total=60,  # 總超時 60 秒
-        connect=10,  # 連線超時 10 秒
-        sock_read=30,  # 讀取超時 30 秒
-    )
-
-    aiohttp_session = aiohttp.ClientSession(
-        connector=connector, timeout=timeout, trust_env=True  # 支援代理設定
-    )
-
-    # 初始化 DependencyContainer（與原始 main.py 相同）
-    containers = DependencyContainer()
-    await containers.init_async(aiohttp_session=aiohttp_session)
+    # 創建 mock container（實際應使用 DependencyContainer）
+    containers = MockContainer()
     app.state.container = containers
 
-    update_service = UpdateService(containers)
+    yield
 
-    try:
-        results = await asyncio.gather(
-            load_rag_mappings(containers, update_service),
-            load_kb_mappings(containers, update_service),
-            asyncio.to_thread(update_service.update_website_botname),
-            asyncio.to_thread(update_service.update_specific_KB),
-            return_exceptions=True,  # 即使某個任務失敗，其他任務也繼續
-        )
-
-        # 檢查是否有錯誤
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"初始化任務 {i} 失敗: {result}")
-
-        yield
-
-    finally:
-        await aiohttp_session.close()
-        await asyncio.sleep(0.25)
-        print("Application shutting down...")
+    print("Application shutting down...")
 
 
 # ---------------------- FastAPI App & middleware ------------------------------
