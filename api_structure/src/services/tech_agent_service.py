@@ -3,9 +3,14 @@ Tech Agent Service - Business logic layer for tech agent operations.
 Orchestrates between handlers and repositories, preserving original business logic.
 """
 
+import sys
+from pathlib import Path
+# Add parent to path to import utils logger
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
 import uuid
 from typing import Dict, Any, List, Optional, Tuple
-from api_structure.core.logger import logger
+from utils.logger import logger
 from api_structure.src.repositories.tech_agent_repository import TechAgentRepository
 
 

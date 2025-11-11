@@ -3,9 +3,14 @@ Tech Agent Router - API endpoint handler.
 Orchestrates request/response flow following AOCC FastAPI pattern.
 """
 
+import sys
+from pathlib import Path
+# Add parent to path to import utils logger
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
 from typing import Dict, Any
 from fastapi import Request
-from api_structure.core.logger import logger
+from utils.logger import logger
 from api_structure.src.schemas.tech_agent_schemas import TechAgentInput
 from api_structure.src.handlers.tech_agent_handler import TechAgentHandler
 from api_structure.src.services.tech_agent_service import TechAgentService

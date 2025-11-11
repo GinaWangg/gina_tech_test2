@@ -3,11 +3,16 @@ Tech Agent Handler - Core business logic with @timed decorators.
 Maintains exact behavior of original TechAgentProcessor implementation.
 """
 
+import sys
+from pathlib import Path
+# Add parent to path to import utils logger
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
 import time
 import json
 from typing import Dict, Any, Optional
 from api_structure.core.timer import timed
-from api_structure.core.logger import logger
+from utils.logger import logger
 from api_structure.src.services.tech_agent_service import (
     TechAgentService,
     TOP1_KB_SIMILARITY_THRESHOLD,
@@ -76,7 +81,7 @@ class TechAgentHandler:
         await self._process_history()
         await self._get_user_and_scope_info()
         await self._search_knowledge_base()
-        self._process_kb_results()
+        await self._process_kb_results()
         await self._generate_response()
         await self._log_and_save_results()
         
@@ -205,7 +210,7 @@ class TechAgentHandler:
         logger.info(f"[ServiceDiscriminator] discrimination_productline_response: {log_json}")
     
     @timed(task_name="process_kb_results")
-    def _process_kb_results(self) -> None:
+    async def _process_kb_results(self) -> None:
         """Process and filter results from KB search."""
         (
             self.top4_kb_list,

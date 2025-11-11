@@ -3,11 +3,16 @@ Tech Agent Repository - Data access layer for tech agent operations.
 Preserves original data access logic with stub/mock implementations.
 """
 
+import sys
+from pathlib import Path
+# Add parent to path to import utils logger
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
 import pickle
 import asyncio
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
-from api_structure.core.logger import logger
+from utils.logger import logger
 
 
 class TechAgentRepository:
