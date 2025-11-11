@@ -5,7 +5,9 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+
+# Use refactored api_structure version (original main.py requires env vars)
+from api_structure.main import app
 
 
 @pytest.fixture(scope="module")
