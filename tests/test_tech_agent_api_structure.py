@@ -1,0 +1,92 @@
+"""
+技術支援 API 整合測試 - api_structure 版本
+測試 /v1/tech_agent 端點是否能正常處理請求
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+from api_structure.main import app
+
+
+@pytest.fixture(scope="module")
+def client():
+    """建立測試用的 FastAPI client"""
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_tech_agent_basic_flow(client):
+    """測試基本技術支援流程 - 筆電登入畫面卡住問題"""
+
+    # 準備測試資料
+    test_payload = {
+        "cus_id": "GINA_TEST",
+        "session_id": "f6b3ddd8-6c55-4edc-9cf0-8408664cb89d",
+        "chat_id": "c516e816-0ad1-44f1-9046-7878bd78b3bc",
+        "user_input": "我的筆電卡在登入畫面，完全沒有反應。",
+        "websitecode": "tw",
+        "product_line": "",
+        "system_code": "rog",
+    }
+
+    # 發送 POST 請求
+    response = client.post("/v1/tech_agent", json=test_payload)
+
+    # 驗證回應
+    assert (
+        response.status_code == 200
+    ), f"期望狀態碼 200，實際得到 {response.status_code}"
+
+    # 驗證回應內容為 JSON 格式
+    response_data = response.json()
+    assert isinstance(response_data, dict), "回應應該是字典格式"
+
+    # 基本欄位檢查 - 使用原系統格式
+    assert "status" in response_data, "回應應包含 status 欄位"
+    assert response_data["status"] == 200, "status 應為 200"
+    assert "type" in response_data, "回應應包含 type 欄位"
+    assert "message" in response_data, "回應應包含 message 欄位"
+    assert "output" in response_data, "回應應包含 output 欄位"
+
+    # 驗證output結構
+    output = response_data["output"]
+    assert isinstance(output, dict), "output 應該是字典格式"
+    assert "kb" in output, "output 應包含 kb 欄位"
+    assert "answer" in output, "output 應包含 answer 欄位"
+    assert "ask_flag" in output, "output 應包含 ask_flag 欄位"
+    assert "hint_candidates" in output, "output 應包含 hint_candidates 欄位"
+
+    # 驗證kb結構
+    kb = output["kb"]
+    assert "kb_no" in kb, "kb 應包含 kb_no"
+    assert "similarity" in kb, "kb 應包含 similarity"
+
+    print(f"\n✅ 測試通過！回應資料: {response_data}")
+
+
+def test_tech_agent_with_product_line(client):
+    """測試有產品線的技術支援流程"""
+
+    test_payload = {
+        "cus_id": "TEST_USER",
+        "session_id": "test-session-123",
+        "chat_id": "test-chat-456",
+        "user_input": "筆電無法開機",
+        "websitecode": "tw",
+        "product_line": "notebook",
+        "system_code": "asus",
+    }
+
+    response = client.post("/v1/tech_agent", json=test_payload)
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["status"] == 200
+    assert "output" in response_data
+
+    print(f"\n✅ 有產品線測試通過！")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])
