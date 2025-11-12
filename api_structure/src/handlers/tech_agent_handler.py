@@ -32,6 +32,9 @@ class TechAgentHandler:
         service_discriminator: Any,
         kb_mappings: Dict[str, Any],
         rag_mappings: Dict[str, Any],
+        user_info_extractor: Optional[Any] = None,
+        follow_up_detector: Optional[Any] = None,
+        avatar_generator: Optional[Any] = None,
     ):
         """Initialize tech agent handler.
 
@@ -41,11 +44,17 @@ class TechAgentHandler:
             service_discriminator: Service discriminator for KB search
             kb_mappings: KB mappings dictionary
             rag_mappings: RAG mappings dictionary
+            user_info_extractor: GPT-based user info extractor (optional)
+            follow_up_detector: GPT-based follow-up detector (optional)
+            avatar_generator: GPT-based avatar response generator (optional)
         """
         self.user_input = user_input
         self.cosmos_service = cosmos_service
         self.service_discriminator = service_discriminator
         self.start_time = time.perf_counter()
+        self.user_info_extractor = user_info_extractor
+        self.follow_up_detector = follow_up_detector
+        self.avatar_generator = avatar_generator
 
         # Create mock container for services
         class MockContainer:
@@ -55,8 +64,11 @@ class TechAgentHandler:
 
         self.container = MockContainer(kb_mappings, rag_mappings)
 
-        # Initialize services
-        self.kb_service = KnowledgeBaseService(self.container)
+        # Initialize services with GPT components
+        self.kb_service = KnowledgeBaseService(
+            self.container,
+            avatar_generator=avatar_generator
+        )
 
         # Initialize attributes
         self.chat_flow = None
@@ -125,11 +137,13 @@ class TechAgentHandler:
 
         self.renderId = str(uuid.uuid4())
 
-        # Initialize chat flow service
+        # Initialize chat flow service with GPT components
         self.chat_flow = ChatFlowService(
             data=self.user_input,
             last_hint=self.last_hint,
             container=self.container,
+            user_info_extractor=self.user_info_extractor,
+            follow_up_detector=self.follow_up_detector,
         )
 
         if not self.user_info:

@@ -10,15 +10,17 @@ from api_structure.core.timer import timed
 class KnowledgeBaseService:
     """Service for KB search and processing."""
 
-    def __init__(self, container: Any):
+    def __init__(self, container: Any, avatar_generator: Optional[Any] = None):
         """Initialize KB service.
 
         Args:
             container: Dependency container with KB mappings
+            avatar_generator: GPT-based avatar response generator (optional)
         """
         self.container = container
         self.KB_mappings = getattr(container, "KB_mappings", {})
         self.rag_mappings = getattr(container, "rag_mappings", {})
+        self.avatar_generator = avatar_generator
 
     def get_kb_content(self, kb_no: str, lang: str) -> Dict[str, Any]:
         """Get KB content by number and language.
@@ -238,18 +240,38 @@ class KnowledgeBaseService:
         Returns:
             Avatar response dictionary
         """
-        # Original would use Gemini/GPT to generate friendly response
+        # Use GPT to generate avatar response if generator is available
+        if self.avatar_generator:
+            try:
+                context = None
+                if content_data:
+                    # Build context from KB content
+                    context = f"Title: {content_data.get('title', '')}\n"
+                    context += f"Content: {content_data.get('content', '')[:500]}"
+                
+                response_text = await self.avatar_generator.generate(
+                    user_input=user_input,
+                    lang=lang,
+                    context=context
+                )
+                
+                # Wrap in mock response object for compatibility
+                class Response:
+                    def __init__(self, answer: str):
+                        self.answer = answer
+                
+                return {"response": Response(response_text)}
+            except Exception as e:
+                print(f"[KnowledgeBaseService] Avatar generation failed: {e}")
 
-        # Mock response
+        # Fallback to mock response
         class MockResponse:
             def __init__(self, answer: str):
                 self.answer = answer
 
-        mock_answer = (
-            "您好！我是華碩技術支援小幫手。"
-            "我會盡力協助您解決問題。請告訴我更多細節吧！"
-        )
+        if lang.startswith('zh'):
+            mock_answer = "您好！我是華碩技術支援小幫手。我會盡力協助您解決問題。請告訴我更多細節吧！"
+        else:
+            mock_answer = "Hello! I'm ASUS technical support assistant. I'll do my best to help you. Please tell me more details!"
 
-        return {
-            "response": MockResponse(mock_answer)
-        }  # TODO: Enable when environment ready
+        return {"response": MockResponse(mock_answer)}

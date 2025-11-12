@@ -31,6 +31,17 @@ async def tech_agent_router(
     )
     kb_mappings = getattr(request.app.state, "kb_mappings", {})
     rag_mappings = getattr(request.app.state, "rag_mappings", {})
+    
+    # Get GPT-based services from app state
+    user_info_extractor = getattr(
+        request.app.state, "user_info_extractor", None
+    )
+    follow_up_detector = getattr(
+        request.app.state, "follow_up_detector", None
+    )
+    avatar_generator = getattr(
+        request.app.state, "avatar_generator", None
+    )
 
     # Create handler and process
     handler = TechAgentHandler(
@@ -39,6 +50,9 @@ async def tech_agent_router(
         service_discriminator=service_discriminator,
         kb_mappings=kb_mappings,
         rag_mappings=rag_mappings,
+        user_info_extractor=user_info_extractor,
+        follow_up_detector=follow_up_detector,
+        avatar_generator=avatar_generator,
     )
 
     result = await handler.run()

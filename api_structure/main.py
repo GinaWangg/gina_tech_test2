@@ -76,15 +76,32 @@ async def load_pickle_data(app: FastAPI):
 async def lifespan(app: FastAPI):
     print("Application starting up...")
     
-    # Try to initialize GPT client (optional for testing)
+    # Try to initialize GPT client
+    gpt_client = None
     try:
         gpt_client = GptClient()
         await gpt_client.initialize()
         app.state.gpt_client = gpt_client
         print("[Startup] GPT client initialized")
+        
+        # Initialize GPT-based services now that client is available
+        from api_structure.src.services.gpt_services import (
+            UserInfoExtractor,
+            FollowUpDetector,
+            AvatarResponseGenerator,
+        )
+        
+        app.state.user_info_extractor = UserInfoExtractor(gpt_client)
+        app.state.follow_up_detector = FollowUpDetector(gpt_client)
+        app.state.avatar_generator = AvatarResponseGenerator(gpt_client)
+        print("[Startup] GPT-based services initialized")
+        
     except ValueError as e:
         print(f"[Startup] GPT client not initialized: {e}")
         app.state.gpt_client = None
+        app.state.user_info_extractor = None
+        app.state.follow_up_detector = None
+        app.state.avatar_generator = None
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(

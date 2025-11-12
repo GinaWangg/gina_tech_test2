@@ -16,6 +16,8 @@ class ChatFlowService:
         data: TechAgentInput,
         last_hint: Optional[Dict[str, Any]],
         container: Any,
+        user_info_extractor: Optional[Any] = None,
+        follow_up_detector: Optional[Any] = None,
     ):
         """Initialize chat flow service.
 
@@ -23,10 +25,14 @@ class ChatFlowService:
             data: Tech agent input data
             last_hint: Last hint from history
             container: Dependency container
+            user_info_extractor: GPT-based user info extractor (optional)
+            follow_up_detector: GPT-based follow-up detector (optional)
         """
         self.data = data
         self.last_hint = last_hint
         self.container = container
+        self.user_info_extractor = user_info_extractor
+        self.follow_up_detector = follow_up_detector
 
         # Default user info structure
         self.default_user_info = {
@@ -50,11 +56,26 @@ class ChatFlowService:
         Returns:
             Tuple of (user_info_dict, extraction_success)
         """
-        # Original logic would use GPT to extract user info
-        # prompt = f"Extract user info from: {his_inputs}"
-        # response = await self.container.userinfo_discrimiator.extract(prompt)
+        # Use GPT to extract user info if extractor is available
+        if self.user_info_extractor:
+            try:
+                # Combine inputs for context
+                combined_input = "\n".join(his_inputs)
+                result = await self.user_info_extractor.extract(combined_input)
+                
+                user_info_dict = {
+                    "main_product_category": result.get("main_product_category") or "",
+                    "sub_product_category": result.get("sub_product_category") or "",
+                    "model_name": "",
+                    "serial_number": "",
+                    "purchase_location": "",
+                    "purchase_date": "",
+                }
+                return (user_info_dict, True)
+            except Exception as e:
+                print(f"[ChatFlowService] User info extraction failed: {e}")
 
-        # Mock extraction - return empty for first-time users
+        # Fallback - return empty for first-time users
         user_info_dict = {
             "main_product_category": "",
             "sub_product_category": "",
@@ -64,10 +85,7 @@ class ChatFlowService:
             "purchase_date": "",
         }
 
-        return (
-            user_info_dict,
-            True,
-        )  # TODO: Enable when environment ready
+        return (user_info_dict, True)
 
     async def get_searchInfo(self, his_inputs: List[str]) -> str:
         """Get search information from user inputs.
@@ -144,20 +162,21 @@ class ChatFlowService:
         Returns:
             Dict with is_follow_up flag and metadata
         """
-        # Original would use GPT function calling to determine
-        # if new_question is related to previous Q&A
+        # Use GPT to detect follow-up if detector is available
+        if self.follow_up_detector:
+            try:
+                result = await self.follow_up_detector.detect(
+                    prev_question=prev_question,
+                    prev_answer=prev_answer,
+                    prev_answer_refs=prev_answer_refs,
+                    new_question=new_question,
+                )
+                return result
+            except Exception as e:
+                print(f"[ChatFlowService] Follow-up detection failed: {e}")
 
-        # prompt = f'''
-        # Previous Q: {prev_question}
-        # Previous A: {prev_answer}
-        # References: {prev_answer_refs}
-        # New Q: {new_question}
-        # Is this a follow-up? Respond with JSON: {{"is_follow_up": bool}}
-        # '''
-        # response = await self.container.followup_discrimiator.classify(prompt)
-
-        # Mock - assume not follow-up for first interaction
+        # Fallback - assume not follow-up
         return {
             "is_follow_up": False,
             "confidence": 0.0,
-        }  # TODO: Enable when environment ready
+        }
