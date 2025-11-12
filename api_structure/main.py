@@ -1,41 +1,62 @@
 # 統一載入設定檔
 import os
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+from api_structure.src.clients.tech_agent_container import TechAgentContainer
 # from src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    
+    # Initialize GPT client if credentials available
+    try:
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+        print("GPT client initialized")
+    except ValueError as e:
+        print(f"GPT client initialization skipped: {e}")
+        app.state.gpt_client = None
 
-    # aiohttp client with connection pooling
-    aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
-    )
-    await aiohttp_client.initialize()
-    app.state.aiohttp_client = aiohttp_client
+    # Initialize aiohttp client
+    try:
+        aiohttp_client = AiohttpClient(
+            timeout=30,
+            connector_limit=100,
+            connector_limit_per_host=30
+        )
+        await aiohttp_client.initialize()
+        app.state.aiohttp_client = aiohttp_client
+        print("Aiohttp client initialized")
+    except Exception as e:
+        print(f"Aiohttp client initialization skipped: {e}")
+        app.state.aiohttp_client = None
 
     # cosmos_client = CosmosDbClient()
     # await cosmos_client.initialize()
     # app.state.cosmos_client = cosmos_client
 
+    # tech agent container with mocked dependencies (always available)
+    tech_agent_container = TechAgentContainer()
+    await tech_agent_container.initialize()
+    app.state.tech_agent_container = tech_agent_container
+    print("Tech agent container initialized")
+
     yield
     
     print("Application shutting down...")
-    await app.state.gpt_client.close()
-    await app.state.aiohttp_client.close()
+    if app.state.gpt_client:
+        await app.state.gpt_client.close()
+    if app.state.aiohttp_client:
+        await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
+    await app.state.tech_agent_container.close()
 
 
 #---------------------- FastAPI App & middleware ------------------------------
@@ -50,7 +71,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
@@ -135,6 +156,10 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from api_structure.src.routers.tech_agent_router import (
+    router as tech_agent_router
+)
+app.include_router(tech_agent_router)
 
 
 # root endpoint
