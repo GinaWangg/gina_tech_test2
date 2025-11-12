@@ -64,22 +64,24 @@ async def test_gpt_api_connectivity():
         
         # Initialize client
         print("\n2. Initializing GptClient...")
-        gpt_client = GptClient(config=config)
+        gpt_client = GptClient(
+            api_version=config["AZURE_OPENAI_API_VERSION"],
+            resource_endpoint=config["AZURE_OPENAI_ENDPOINT"],
+            api_key=config["AZURE_OPENAI_API_KEY"],
+            default_model=config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+        )
         await gpt_client.initialize()
         print("   ✓ Client initialized successfully")
         
         # Test 1: Simple completion
         print("\n3. Testing simple completion...")
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "Say 'API connection successful!' if you receive this.",
-            },
-        ]
         
-        response = await gpt_client.call(messages=messages, temperature=0.1)
-        print(f"   ✓ Response: {response[:80]}...")
+        response = await gpt_client.call_with_prompts(
+            system_prompt="You are a helpful assistant.",
+            user_prompt="Say 'API connection successful!' if you receive this.",
+            temperature=0.1
+        )
+        print(f"   ✓ Response: {str(response)[:80] if response else 'None'}...")
         
         # Test 2: Function calling
         print("\n4. Testing function calling...")

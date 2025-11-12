@@ -104,7 +104,7 @@ class GptClient:
         timeout: float = 5.0,
         temperature: float = 0.0,
         model: Optional[str] = None,
-        response_format={"type": "json_object"},
+        response_format=None,  # Changed default to None
     ) -> dict:
         """Call GPT-4 with the provided conversation.
 
@@ -138,12 +138,15 @@ class GptClient:
         model_name = model or self._default_model
 
         async def gpt_chat_completion():
-            result = await client.chat.completions.create(
-                model=model_name,
-                messages=conversation,
-                response_format=response_format,
-                temperature=temperature,
-            )
+            kwargs = {
+                "model": model_name,
+                "messages": conversation,
+                "temperature": temperature,
+            }
+            if response_format is not None:
+                kwargs["response_format"] = response_format
+            
+            result = await client.chat.completions.create(**kwargs)
             return result.choices[0].message.content or ""
 
         try:
