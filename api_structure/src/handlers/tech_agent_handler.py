@@ -102,7 +102,7 @@ class TechAgentHandler:
         # Phase 8: Log and save results
         await self._log_and_save_results(user_input)
 
-        return self.final_result
+        return self.response_data
 
     async def _initialize_chat(self, user_input: TechAgentInput) -> None:
         """Initialize chat and retrieve history.

@@ -42,21 +42,25 @@ def test_tech_agent_basic_flow(client):
     response_data = response.json()
     assert isinstance(response_data, dict), "回應應該是字典格式"
 
-    # 基本欄位檢查
+    # 基本欄位檢查 - 使用原系統格式
     assert "status" in response_data, "回應應包含 status 欄位"
     assert response_data["status"] == 200, "status 應為 200"
+    assert "type" in response_data, "回應應包含 type 欄位"
     assert "message" in response_data, "回應應包含 message 欄位"
-    assert "result" in response_data, "回應應包含 result 欄位"
+    assert "output" in response_data, "回應應包含 output 欄位"
 
-    # 驗證result是list
-    assert isinstance(response_data["result"], list), "result 應該是列表格式"
-    assert len(response_data["result"]) > 0, "result 應至少包含一個項目"
+    # 驗證output結構
+    output = response_data["output"]
+    assert isinstance(output, dict), "output 應該是字典格式"
+    assert "kb" in output, "output 應包含 kb 欄位"
+    assert "answer" in output, "output 應包含 answer 欄位"
+    assert "ask_flag" in output, "output 應包含 ask_flag 欄位"
+    assert "hint_candidates" in output, "output 應包含 hint_candidates 欄位"
 
-    # 驗證第一個result項目結構
-    first_result = response_data["result"][0]
-    assert "renderId" in first_result, "result 項目應包含 renderId"
-    assert "type" in first_result, "result 項目應包含 type"
-    assert "message" in first_result, "result 項目應包含 message"
+    # 驗證kb結構
+    kb = output["kb"]
+    assert "kb_no" in kb, "kb 應包含 kb_no"
+    assert "similarity" in kb, "kb 應包含 similarity"
 
     print(f"\n✅ 測試通過！回應資料: {response_data}")
 
@@ -79,7 +83,7 @@ def test_tech_agent_with_product_line(client):
     assert response.status_code == 200
     response_data = response.json()
     assert response_data["status"] == 200
-    assert "result" in response_data
+    assert "output" in response_data
 
     print(f"\n✅ 有產品線測試通過！")
 
