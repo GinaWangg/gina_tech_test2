@@ -2,26 +2,33 @@
 import os
 import api_structure.core.config
 
-#---------------------- Lifespan Configuration --------------------------------
+# ---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+
 # from api_structure.src.db.cosmos_client import CosmosDbClient
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling (GPT client disabled for testing)
-    # gpt_client = GptClient()
-    # await gpt_client.initialize()
-    # app.state.gpt_client = gpt_client
+    # Connection pooling - GPT client for chat flow
+    try:
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+        print("GPT client initialized successfully")
+    except ValueError as e:
+        print(f"Warning: Could not initialize GPT client: {e}")
+        print("Using mock GPT client for testing")
+        # Create a mock client that will fail gracefully
+        app.state.gpt_client = None
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
+        timeout=30, connector_limit=100, connector_limit_per_host=30
     )
     await aiohttp_client.initialize()
     app.state.aiohttp_client = aiohttp_client
@@ -31,32 +38,34 @@ async def lifespan(app: FastAPI):
     # app.state.cosmos_client = cosmos_client
 
     yield
-    
+
     print("Application shutting down...")
-    # await app.state.gpt_client.close()
+    if app.state.gpt_client:
+        await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
 
 
-#---------------------- FastAPI App & middleware ------------------------------
+# ---------------------- FastAPI App & middleware ------------------------------
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=['Content-Type'],
-    max_age=3600
+    allow_headers=["Content-Type"],
+    max_age=3600,
 )
 
 from api_structure.core.middleware import RequestLoggingMiddleware
+
 app.add_middleware(RequestLoggingMiddleware)
 
 
 # --------------------- application insights ----------------------------------
 if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
-    ''' 地端上使用 可以用這段 '''
+    """地端上使用 可以用這段"""
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -68,7 +77,7 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
             provider = TracerProvider()
             trace.set_tracer_provider(provider)
             # terminal輸出
-            span_processor = BatchSpanProcessor(ConsoleSpanExporter()) 
+            span_processor = BatchSpanProcessor(ConsoleSpanExporter())
             provider.add_span_processor(span_processor)
             return provider
         else:
@@ -78,24 +87,23 @@ if not os.getenv("SCM_DO_BUILD_DURING_DEPLOYMENT"):
     # tracer_provider = setup_tracing()
 
 else:
-    ''' azure上使用 可以用這段 '''
+    """azure上使用 可以用這段"""
     from azure.monitor.opentelemetry import configure_azure_monitor
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
     # Application Insights 的 Connection String
-    CONNECTION_STRING = os.getenv('MYAPP_CONNECTION_STRING')
+    CONNECTION_STRING = os.getenv("MYAPP_CONNECTION_STRING")
     if not CONNECTION_STRING:
-        raise ValueError(
-            "Environment variable 'MYAPP_CONNECTION_STRING' is not set.")
+        raise ValueError("Environment variable 'MYAPP_CONNECTION_STRING' is not set.")
 
     # 配置 Azure Monitor OpenTelemetry
     configure_azure_monitor(
-        connection_string=CONNECTION_STRING, 
-        enable_live_metrics=True
+        connection_string=CONNECTION_STRING, enable_live_metrics=True
     )
 
-''' 不管地端還是 azure 都要這段 '''
+""" 不管地端還是 azure 都要這段 """
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
 FastAPIInstrumentor.instrument_app(app)
 
 
@@ -104,7 +112,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from pytz import timezone
 
-scheduler = BackgroundScheduler(timezone=timezone('Asia/Taipei'))
+scheduler = BackgroundScheduler(timezone=timezone("Asia/Taipei"))
 
 # # 設置不同的任務和執行間隔，定期重讀定義表
 # scheduler.add_job(
@@ -123,10 +131,8 @@ scheduler.start()
 from api_structure.core import exception_handlers as exc_handler
 from fastapi import HTTPException
 
-app.add_exception_handler(
-    HTTPException, exc_handler.custom_http_exception_handler)
-app.add_exception_handler(
-    Exception, exc_handler.global_exception_handler)
+app.add_exception_handler(HTTPException, exc_handler.custom_http_exception_handler)
+app.add_exception_handler(Exception, exc_handler.global_exception_handler)
 
 
 # --------------------- endpoints ---------------------------------------------
@@ -139,15 +145,16 @@ from api_structure.src.routers.tech_agent_router import router as tech_agent_rou
 
 app.include_router(tech_agent_router)
 
+
 # root endpoint
 @app.get("/")
 async def root():
     return {"message": "api is running"}
-    
+
+
 # --------------------- local test --------------------------------------------
 
 if __name__ == "__main__":
-    import uvicorn  
+    import uvicorn
+
     uvicorn.run("api_structure.main:app", host="127.0.0.1", port=8000, reload=True)
-
-

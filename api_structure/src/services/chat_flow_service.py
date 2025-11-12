@@ -1,11 +1,9 @@
 """Chat flow service for handling user info and bot scope logic."""
 
-import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
-from src.core.config_loader import config
-from src.services.base_service import BaseService
+from api_structure.src.clients.gpt import GptClient
 
 
 class ChatFlowService:
@@ -15,8 +13,14 @@ class ChatFlowService:
     and follow-up question detection.
     """
 
-    def __init__(self):
-        """Initialize chat flow service."""
+    def __init__(self, gpt_client: Optional[GptClient]):
+        """Initialize chat flow service.
+
+        Args:
+            gpt_client: Initialized GptClient instance for GPT operations.
+                Can be None for testing/fallback mode.
+        """
+        self.gpt_client = gpt_client
         self.default_user_info = {
             "our_brand": "ASUS",
             "location": None,
@@ -24,13 +28,6 @@ class ChatFlowService:
             "sub_product_category": None,
             "first_time": True,
         }
-
-        # Initialize base service for GPT calls
-        try:
-            self.base_service = BaseService(config=config)
-        except Exception as e:
-            print(f"Warning: Could not initialize BaseService: {e}")
-            self.base_service = None
 
         # GPT system messages for user info extraction
         self.system_messages = [
@@ -94,8 +91,8 @@ Output Format:
 
         search_info = his_inputs[-1] if his_inputs else ""
 
-        # Try real GPT extraction if base_service is available
-        if self.base_service:
+        # Try real GPT extraction if client is available
+        if self.gpt_client:
             try:
                 extraction_functions = [
                     {
@@ -124,7 +121,7 @@ Output Format:
                 messages = self.system_messages.copy()
                 messages.extend([{"role": "user", "content": str(his_inputs)}])
 
-                response = await self.base_service.GPT41_mini_response_functions(
+                response = await self.gpt_client.call_with_functions(
                     messages, extraction_functions, {"name": "information_extraction"}
                 )
 
@@ -257,8 +254,8 @@ Output Format:
         # Default fallback
         default_result = {"is_follow_up": False}
 
-        # Try real GPT follow-up detection if base_service is available
-        if self.base_service:
+        # Try real GPT follow-up detection if client is available
+        if self.gpt_client:
             try:
                 # Empty new question → not a follow-up
                 if not new_question or new_question.strip() == "":
@@ -314,7 +311,7 @@ OUTPUT: Return a function call with is_follow_up (bool) and confidence (0-1).
                     },
                 ]
 
-                response = await self.base_service.GPT41_mini_response_functions(
+                response = await self.gpt_client.call_with_functions(
                     messages, [follow_up_function], {"name": "follow_up_bool"}
                 )
 

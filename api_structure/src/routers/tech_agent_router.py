@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 
+from api_structure.src.clients.gpt import GptClient
 from api_structure.src.handlers.tech_agent_handler import TechAgentHandler
 from api_structure.src.models.tech_agent_models import TechAgentInput
 from api_structure.src.services.chat_flow_service import ChatFlowService
@@ -26,8 +27,11 @@ async def tech_agent_api(user_input: TechAgentInput, request: Request):
     Returns:
         Tech agent response with status, message, and result data.
     """
-    # Initialize services
-    chat_flow_service = ChatFlowService()
+    # Get GPT client from app state (may be None if not configured)
+    gpt_client: GptClient = getattr(request.app.state, "gpt_client", None)
+
+    # Initialize services with dependencies
+    chat_flow_service = ChatFlowService(gpt_client=gpt_client)
     kb_search_service = KBSearchService()
     rag_service = RAGService()
     cosmos_service = CosmosService()
