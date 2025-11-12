@@ -199,3 +199,62 @@ class GptClient:
             temperature=temperature,
             model=model
         )
+    
+    async def call_with_functions(
+        self,
+        messages: list[ChatCompletionMessageParam],
+        functions: list,
+        function_call: dict,
+        max_tokens: int = 1000,
+        temperature: float = 0.0,
+        timeout: float = 10.0,
+        model: Optional[str] = None
+    ):
+        """Call GPT with function calling support.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            functions: List of function definitions
+            function_call: Function call specification (e.g., {"name": "func"})
+            max_tokens: Maximum tokens in response. Defaults to 1000
+            temperature: Sampling temperature. Defaults to 0.0
+            timeout: Request timeout in seconds. Defaults to 10.0
+            model: Model name to use. If None, uses default model
+        
+        Returns:
+            The model's message object with function_call attribute
+        
+        Raises:
+            ValueError: If the client has not been initialized
+        """
+        if self._client is None:
+            raise ValueError(
+                "Client has not been initialized. Call `initialize()` first."
+            )
+        
+        client = self._client
+        model_name = model or self._default_model
+        
+        async def gpt_function_call():
+            result = await client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                functions=functions,
+                function_call=function_call,
+            )
+            return result.choices[0].message
+
+        try:
+            response = await asyncio.wait_for(
+                gpt_function_call(),
+                timeout=timeout
+            )
+            return response
+        except asyncio.TimeoutError:
+            print(f"GPT function call timed out after {timeout}s, retrying")
+            return await gpt_function_call()
+        except Exception as e:
+            print(f"GPT function call error: {e}")
+            raise
