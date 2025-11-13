@@ -1,31 +1,22 @@
 """
-技術支援 API 整合測試
-測試 /v1/tech_agent 端點是否能正常處理請求
+技術支援 API 整合測試 - api_structure version
+測試 api_structure 的 /v1/tech_agent 端點是否能正常處理請求
 """
-
-import os
-
-# Set test environment variables BEFORE importing any modules
-os.environ["TESTING"] = "true"
-os.environ["TECH_OPENAI_GPT41MINI_PAYGO_EU_AZURE_ENDPOINT"] = "https://mock.openai.azure.com/"
-os.environ["TECH_OPENAI_GPT41MINI_PAYGO_EU_API_KEY"] = "mock_api_key"
-os.environ["TECH_OPENAI_GPT41MINI_PAYGO_EU_API_VERSION"] = "2024-02-15-preview"
-os.environ["TECH_TRANSLATE_CREDENTIALS"] = "bW9ja19jcmVkZW50aWFscw=="
 
 import pytest
 from fastapi.testclient import TestClient
-from main import app
 
 
 @pytest.fixture(scope="module")
 def client():
-    """建立測試用的 FastAPI client"""
+    """建立測試用的 FastAPI client for api_structure"""
+    from api_structure.main import app
     with TestClient(app) as test_client:
         yield test_client
 
 
-def test_tech_agent_basic_flow(client):
-    """測試基本技術支援流程 - 筆電登入畫面卡住問題"""
+def test_tech_agent_basic_flow_api_structure(client):
+    """測試基本技術支援流程 - api_structure - 筆電登入畫面卡住問題"""
     
     # 準備測試資料
     test_payload = {
@@ -42,15 +33,18 @@ def test_tech_agent_basic_flow(client):
     response = client.post("/v1/tech_agent", json=test_payload)
     
     # 驗證回應
-    assert response.status_code == 200, f"期望狀態碼 200，實際得到 {response.status_code}"
+    assert response.status_code == 200, (
+        f"期望狀態碼 200，實際得到 {response.status_code}"
+    )
     
     # 驗證回應內容為 JSON 格式
     response_data = response.json()
     assert isinstance(response_data, dict), "回應應該是字典格式"
     
     # 基本欄位檢查（依實際 API 回應結構調整）
-    assert "status" in response_data or "result" in response_data or "message" in response_data, \
-        "回應應包含 status、result 或 message 欄位"
+    assert "status" in response_data or "result" in response_data or (
+        "message" in response_data
+    ), "回應應包含 status、result 或 message 欄位"
     
     print(f"\n✅ 測試通過！回應資料: {response_data}")
 
