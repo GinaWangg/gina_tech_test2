@@ -1,0 +1,115 @@
+"""
+技術支援 API 整合測試 - api_structure 版本
+測試 /v1/tech_agent 端點是否能正常處理請求
+"""
+
+import pytest
+import os
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture(scope="module")
+def client():
+    """建立測試用的 FastAPI client for api_structure"""
+    # Set required environment variables for testing
+    os.environ["MYAPP_GPT4O_API_KEY"] = "stub_key_for_testing"
+    os.environ["MYAPP_GPT4O_RESOURCE_ENDPOINT"] = (
+        "https://stub.openai.azure.com/"
+    )
+    os.environ["MYAPP_GPT4O_INTENTDETECT"] = "gpt-4"
+    
+    from api_structure.main import app
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_tech_agent_basic_flow(client):
+    """測試基本技術支援流程 - 筆電登入畫面卡住問題"""
+    
+    # 準備測試資料
+    test_payload = {
+        "cus_id": "GINA_TEST",
+        "session_id": "f6b3ddd8-6c55-4edc-9cf0-8408664cb89d",
+        "chat_id": "c516e816-0ad1-44f1-9046-7878bd78b3bc",
+        "user_input": "我的筆電卡在登入畫面，完全沒有反應。",
+        "websitecode": "tw",
+        "product_line": "",
+        "system_code": "rog"
+    }
+    
+    # 發送 POST 請求
+    response = client.post("/v1/tech_agent", json=test_payload)
+    
+    # 驗證回應
+    assert response.status_code == 200, (
+        f"期望狀態碼 200，實際得到 {response.status_code}"
+    )
+    
+    # 驗證回應內容為 JSON 格式
+    response_data = response.json()
+    assert isinstance(response_data, dict), "回應應該是字典格式"
+    
+    # 基本欄位檢查
+    assert "status" in response_data, "回應應包含 status 欄位"
+    assert "message" in response_data, "回應應包含 message 欄位"
+    assert "result" in response_data, "回應應包含 result 欄位"
+    
+    # 驗證狀態碼
+    assert response_data["status"] == 200, "status 應該為 200"
+    
+    # 驗證 result 結構
+    assert isinstance(response_data["result"], list), "result 應該是列表"
+    assert len(response_data["result"]) > 0, "result 不應為空"
+    
+    # 驗證第一個 result 項目的結構
+    first_result = response_data["result"][0]
+    assert "renderId" in first_result, "result 項目應包含 renderId"
+    assert "type" in first_result, "result 項目應包含 type"
+    assert "message" in first_result, "result 項目應包含 message"
+    
+    print(f"\n✅ 測試通過！回應資料: {response_data}")
+
+
+def test_tech_agent_with_product_line(client):
+    """測試包含產品線的技術支援流程"""
+    
+    test_payload = {
+        "cus_id": "GINA_TEST",
+        "session_id": "test-session-001",
+        "chat_id": "test-chat-001",
+        "user_input": "筆電無法開機",
+        "websitecode": "tw",
+        "product_line": "notebook",
+        "system_code": "asus"
+    }
+    
+    response = client.post("/v1/tech_agent", json=test_payload)
+    
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["status"] == 200
+    
+    print(f"\n✅ 產品線測試通過！回應: {response_data}")
+
+
+def test_tech_agent_input_validation(client):
+    """測試輸入驗證"""
+    
+    # 缺少必填欄位的測試
+    invalid_payload = {
+        "cus_id": "GINA_TEST",
+        # 缺少 session_id, chat_id, user_input 等
+    }
+    
+    response = client.post("/v1/tech_agent", json=invalid_payload)
+    
+    # 應該返回 422 驗證錯誤
+    assert response.status_code == 422, (
+        f"期望狀態碼 422，實際得到 {response.status_code}"
+    )
+    
+    print(f"\n✅ 輸入驗證測試通過！")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])
