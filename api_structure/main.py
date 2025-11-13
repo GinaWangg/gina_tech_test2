@@ -1,6 +1,6 @@
 # 統一載入設定檔
 import os
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
@@ -9,22 +9,43 @@ from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
 # from src.db.cosmos_client import CosmosDbClient
 
+# Tech Agent repositories
+from api_structure.src.repositories.cosmos_repository import CosmosRepository
+from api_structure.src.repositories.redis_repository import RedisRepository
+from api_structure.src.repositories.kb_repository import KBRepository
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    
+    # Initialize tech agent repositories (stubbed for now)
+    cosmos_repo = CosmosRepository()
+    redis_repo = RedisRepository()
+    kb_repo = KBRepository()
+    
+    app.state.cosmos_repo = cosmos_repo
+    app.state.redis_repo = redis_repo
+    app.state.kb_repo = kb_repo
 
-    # aiohttp client with connection pooling
-    aiohttp_client = AiohttpClient(
-        timeout=30,
-        connector_limit=100,
-        connector_limit_per_host=30
-    )
-    await aiohttp_client.initialize()
-    app.state.aiohttp_client = aiohttp_client
+    # Optional: Initialize GPT and aiohttp clients if credentials available
+    try:
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+
+        aiohttp_client = AiohttpClient(
+            timeout=30,
+            connector_limit=100,
+            connector_limit_per_host=30
+        )
+        await aiohttp_client.initialize()
+        app.state.aiohttp_client = aiohttp_client
+        
+        print("GPT and aiohttp clients initialized successfully")
+    except Exception as e:
+        print(f"Warning: Could not initialize optional clients: {e}")
+        app.state.gpt_client = None
+        app.state.aiohttp_client = None
 
     # cosmos_client = CosmosDbClient()
     # await cosmos_client.initialize()
@@ -33,8 +54,10 @@ async def lifespan(app: FastAPI):
     yield
     
     print("Application shutting down...")
-    await app.state.gpt_client.close()
-    await app.state.aiohttp_client.close()
+    if hasattr(app.state, 'gpt_client') and app.state.gpt_client:
+        await app.state.gpt_client.close()
+    if hasattr(app.state, 'aiohttp_client') and app.state.aiohttp_client:
+        await app.state.aiohttp_client.close()
     # await app.state.cosmos_client.close()
 
 
@@ -50,7 +73,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
@@ -135,6 +158,8 @@ app.add_exception_handler(
 # from pydantic import BaseModel
 
 # routers
+from api_structure.src.routers.tech_agent_router import router as tech_agent_router
+app.include_router(tech_agent_router)
 
 
 # root endpoint

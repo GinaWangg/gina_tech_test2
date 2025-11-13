@@ -2,6 +2,22 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 import contextvars
 import time
+import logging
+
+
+# Setup standard Python logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Add console handler if not already present
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 _log_ctx_var: contextvars.ContextVar = contextvars.ContextVar(
