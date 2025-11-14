@@ -5,11 +5,7 @@ connect to external APIs and databases. These stubs return mock data
 for testing purposes.
 """
 
-import asyncio
-import json
 import pickle
-import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -54,9 +50,7 @@ class StubCosmosConfig:
         # TODO: Enable when environment ready
         return None
 
-    async def get_language_by_websitecode_dev(
-        self, websitecode: str
-    ) -> str:
+    async def get_language_by_websitecode_dev(self, websitecode: str) -> str:
         """Get language from website code.
 
         Returns mock language based on website code.
@@ -166,9 +160,7 @@ class StubSentenceGroupClassification:
 
     def __init__(self):
         """Initialize stub sentence group classification."""
-        logger.info(
-            "Initializing StubSentenceGroupClassification (mock mode)"
-        )
+        logger.info("Initializing StubSentenceGroupClassification (mock mode)")
 
     async def sentence_group_classification(
         self, his_inputs: List[str]
@@ -178,11 +170,7 @@ class StubSentenceGroupClassification:
         Returns mock classification result.
         """
         # TODO: Enable when environment ready
-        return {
-            "groups": [
-                {"statements": his_inputs}
-            ]
-        }
+        return {"groups": [{"statements": his_inputs}]}
 
 
 class StubBaseService:
@@ -254,9 +242,7 @@ class TechAgentContainer:
         self.cosmos_settings = StubCosmosConfig()
         self.redis_config = StubRedisConfig()
         self.sd = StubServiceDiscriminator()
-        self.sentence_group_classification = (
-            StubSentenceGroupClassification()
-        )
+        self.sentence_group_classification = StubSentenceGroupClassification()
         self.base_service = StubBaseService()
         self.userinfo_discrimiator = StubUserinfoDiscriminator()
         self.followup_discrimiator = StubFollowUpClassifier()

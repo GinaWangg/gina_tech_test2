@@ -32,9 +32,7 @@ class HintCandidate(BaseModel):
     title_name: str = Field(..., description="Title name")
     title: str = Field(..., description="Title")
     icon: str = Field(default="", description="Icon")
-    question: Optional[str] = Field(
-        None, description="Associated question"
-    )
+    question: Optional[str] = Field(None, description="Associated question")
 
 
 class TechAgentOutput(BaseModel):
@@ -45,9 +43,7 @@ class TechAgentOutput(BaseModel):
     hint_candidates: List[Dict[str, Any]] = Field(
         default_factory=list, description="Hint candidates"
     )
-    kb: KBInfo = Field(
-        default_factory=KBInfo, description="KB information"
-    )
+    kb: KBInfo = Field(default_factory=KBInfo, description="KB information")
 
 
 class TechAgentResponse(BaseModel):

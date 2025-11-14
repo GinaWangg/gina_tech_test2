@@ -27,5 +27,5 @@ async def tech_agent_endpoint(
     handler = TechAgentHandler(container=container, user_input=user_input)
     result = await handler.run()
 
-    logger.info(f"[TechAgentRouter] Processing complete")
+    logger.info("[TechAgentRouter] Processing complete")
     return result

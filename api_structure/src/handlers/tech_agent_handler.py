@@ -10,19 +10,14 @@ import json
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from api_structure.core.logger import logger
 from api_structure.core.timer import timed
 from api_structure.src.clients.tech_agent_container import (
     TechAgentContainer,
 )
-from api_structure.src.models.tech_agent_models import (
-    KBInfo,
-    TechAgentInput,
-    TechAgentOutput,
-    TechAgentResponse,
-)
+from api_structure.src.models.tech_agent_models import TechAgentInput
 
 # Thresholds
 TOP1_KB_SIMILARITY_THRESHOLD = 0.87
@@ -213,10 +208,8 @@ class TechAgentHandler:
 
         # Sentence group classification
         group_task = self.container.sentence_group_classification
-        results_related = (
-            await group_task.sentence_group_classification(
-                self.his_inputs
-            )
+        results_related = await group_task.sentence_group_classification(
+            self.his_inputs
         )
 
         # Process grouping results
@@ -257,12 +250,16 @@ class TechAgentHandler:
             self.last_hint
             and self.last_hint.get("hintType") == "productline-reask"
         ):
-            prompt_content = f'''Please determine whether the sentence "{self.his_inputs[-1]}" 
-            mentions any technical support-related issues, and reply with "true" or "false" only. 
-            Here is an example you can refer to. 
-            1. user's question:  it can only be turned on when plugged in. your response: "true" 
-            2. user's question:  wearable. your response: "false" 
-            3. user's question:  notebook. your response: "false"'''
+            prompt_content = (
+                f'Please determine whether the sentence '
+                f'"{self.his_inputs[-1]}" mentions any technical '
+                f'support-related issues, and reply with "true" or '
+                f'"false" only. Here is an example you can refer to. '
+                f'1. user\'s question: it can only be turned on when '
+                f'plugged in. your response: "true" '
+                f'2. user\'s question: wearable. your response: "false" '
+                f'3. user\'s question: notebook. your response: "false"'
+            )
             prompt = [{"role": "user", "content": prompt_content}]
             tech_support_task = (
                 self.container.base_service.GPT41_mini_response(prompt)
@@ -272,11 +269,7 @@ class TechAgentHandler:
         results = await asyncio.gather(
             ui_task,
             si_task,
-            (
-                tech_support_task
-                if tech_support_task
-                else asyncio.sleep(0)
-            ),
+            (tech_support_task if tech_support_task else asyncio.sleep(0)),
             return_exceptions=True,
         )
 
@@ -289,9 +282,7 @@ class TechAgentHandler:
         )
 
         search_info_result = results[1]
-        tech_support_related = (
-            results[2] if tech_support_task else "true"
-        )
+        tech_support_related = results[2] if tech_support_task else "true"
 
         log_json = json.dumps(
             self.user_info_dict, ensure_ascii=False, indent=2
@@ -310,8 +301,7 @@ class TechAgentHandler:
 
         # Get bot_scope
         self.bot_scope_chat = (
-            self.user_input.product_line
-            or await self._get_bot_scope_chat()
+            self.user_input.product_line or await self._get_bot_scope_chat()
         )
 
         logger.info(f"\n[Bot Scope 判斷] {self.bot_scope_chat}")
@@ -357,9 +347,7 @@ class TechAgentHandler:
         else:
             bot_scope_chat = self.user_input.product_line
 
-        if bot_scope_chat not in self.container.PL_mappings.get(
-            site, []
-        ):
+        if bot_scope_chat not in self.container.PL_mappings.get(site, []):
             bot_scope_chat = self.last_bot_scope
 
         return bot_scope_chat
@@ -408,11 +396,13 @@ class TechAgentHandler:
     @timed(task_name="search_knowledge_base")
     async def _search_knowledge_base(self) -> None:
         """Search knowledge base with product line."""
-        response = await self.container.sd.service_discreminator_with_productline(
-            user_question_english=self.search_info,
-            site=self.user_input.websitecode,
-            specific_kb_mappings=self.container.specific_kb_mappings,
-            productLine=self.bot_scope_chat,
+        response = (
+            await self.container.sd.service_discreminator_with_productline(
+                user_question_english=self.search_info,
+                site=self.user_input.websitecode,
+                specific_kb_mappings=self.container.specific_kb_mappings,
+                productLine=self.bot_scope_chat,
+            )
         )
         log_json = json.dumps(response, ensure_ascii=False, indent=2)
         logger.info(
@@ -428,9 +418,7 @@ class TechAgentHandler:
         sim_list = self.faq_result.get("cosineSimilarity", [])
 
         self.top4_kb_list = [
-            faq
-            for faq, sim in zip(faq_list, sim_list)
-            if sim >= KB_THRESHOLD
+            faq for faq, sim in zip(faq_list, sim_list) if sim >= KB_THRESHOLD
         ][:3]
         self.top1_kb = faq_list[0] if faq_list else None
         self.top1_kb_sim = sim_list[0] if sim_list else 0.0
@@ -547,9 +535,7 @@ class TechAgentHandler:
         kb_data = self.container.KB_mappings.get(kb_key, {})
 
         content = {
-            "ask_content": kb_data.get(
-                "summary", "這是技術支援的回答內容。"
-            ),
+            "ask_content": kb_data.get("summary", "這是技術支援的回答內容。"),
             "title": kb_data.get("title", "技術支援"),
             "content": kb_data.get("content", "詳細內容"),
             "link": (
@@ -614,9 +600,7 @@ class TechAgentHandler:
     @timed(task_name="handle_low_similarity")
     async def _handle_low_similarity(self) -> None:
         """Handle case when KB similarity is low."""
-        logger.info(
-            f"\n[相似度低於門檻] 相似度={self.top1_kb_sim}，轉人工"
-        )
+        logger.info(f"\n[相似度低於門檻] 相似度={self.top1_kb_sim}，轉人工")
 
         self.avatar_response = await self.avatar_process
 
@@ -758,9 +742,7 @@ class TechAgentHandler:
 
         return relative_questions
 
-    async def _get_avatar_response_with_content(
-        self, content: Dict
-    ) -> Dict:
+    async def _get_avatar_response_with_content(self, content: Dict) -> Dict:
         """Get avatar response with KB content.
 
         Args:
@@ -773,20 +755,14 @@ class TechAgentHandler:
         # Mock avatar response with content
         await asyncio.sleep(0.1)
         opening_remarks = "您好！我是華碩技術支援小幫手。"
-        answer_text = (
-            f"{opening_remarks}\n\n{content.get('ask_content', '')}"
-        )
-        return {
-            "response": type("obj", (object,), {"answer": answer_text})()
-        }
+        answer_text = f"{opening_remarks}\n\n{content.get('ask_content', '')}"
+        return {"response": type("obj", (object,), {"answer": answer_text})()}
 
     async def _log_and_save_results(self) -> None:
         """Log and save final results to Cosmos DB."""
         end_time = time.perf_counter()
         exec_time = round(end_time - self.start_time, 2)
-        logger.info(
-            f"\n[執行時間] tech_agent_api 共耗時 {exec_time} 秒\n"
-        )
+        logger.info(f"\n[執行時間] tech_agent_api 共耗時 {exec_time} 秒\n")
 
         cosmos_data = {
             "id": (
