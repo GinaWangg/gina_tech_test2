@@ -1,21 +1,27 @@
 # 統一載入設定檔
 import os
-import core.config
+import api_structure.core.config
 
 #---------------------- Lifespan Configuration --------------------------------
 from fastapi.concurrency import asynccontextmanager
 from fastapi import FastAPI
 from api_structure.src.clients.gpt import GptClient
 from api_structure.src.clients.aiohttp_client import AiohttpClient
+from api_structure.src.clients.tech_agent_container import TechAgentContainer
 # from src.db.cosmos_client import CosmosDbClient
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    # connection pooling
-    gpt_client = GptClient()
-    await gpt_client.initialize()
-    app.state.gpt_client = gpt_client
+    
+    # connection pooling - GPT client (optional, skip if credentials missing)
+    try:
+        gpt_client = GptClient()
+        await gpt_client.initialize()
+        app.state.gpt_client = gpt_client
+    except ValueError as e:
+        print(f"Warning: GPT client initialization skipped: {e}")
+        app.state.gpt_client = None
 
     # aiohttp client with connection pooling
     aiohttp_client = AiohttpClient(
@@ -26,6 +32,11 @@ async def lifespan(app: FastAPI):
     await aiohttp_client.initialize()
     app.state.aiohttp_client = aiohttp_client
 
+    # tech agent container with stub services
+    tech_agent_container = TechAgentContainer()
+    await tech_agent_container.initialize()
+    app.state.tech_agent_container = tech_agent_container
+
     # cosmos_client = CosmosDbClient()
     # await cosmos_client.initialize()
     # app.state.cosmos_client = cosmos_client
@@ -33,8 +44,10 @@ async def lifespan(app: FastAPI):
     yield
     
     print("Application shutting down...")
-    await app.state.gpt_client.close()
+    if app.state.gpt_client:
+        await app.state.gpt_client.close()
     await app.state.aiohttp_client.close()
+    await app.state.tech_agent_container.close()
     # await app.state.cosmos_client.close()
 
 
@@ -50,7 +63,7 @@ app.add_middleware(
     max_age=3600
 )
 
-from core.middleware import RequestLoggingMiddleware
+from api_structure.core.middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
 
@@ -131,8 +144,9 @@ app.add_exception_handler(
 
 # --------------------- endpoints ---------------------------------------------
 
-# from fastapi import Response
-# from pydantic import BaseModel
+from fastapi import Request
+from api_structure.src.routers.tech_agent_router import tech_agent_endpoint
+from api_structure.src.models.tech_agent_models import TechAgentInput
 
 # routers
 
@@ -141,6 +155,13 @@ app.add_exception_handler(
 @app.get("/")
 async def root():
     return {"message": "api is running"}
+
+
+# tech agent endpoint
+@app.post("/v1/tech_agent")
+async def v1_tech_agent(user_input: TechAgentInput, request: Request):
+    """Tech agent API endpoint for technical support."""
+    return await tech_agent_endpoint(user_input, request)
     
 # --------------------- local test --------------------------------------------
 
